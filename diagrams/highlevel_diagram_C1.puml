@@ -1,0 +1,25 @@
+@startuml
+title DropVox High-Level Architecture
+
+actor "User" as user
+node "CDN" as cdn
+node "API Gateway" as gate
+node "Auth Service" as auth
+node "Metadata Service" as meta
+node "Sync Service" as sync
+database "PostgreSQL (shards)" as db
+database "Redis (cache)" as redis
+queue "Kafka" as kafka
+storage "MinIO" as s3
+
+user --> cdn : GET /files/{id}
+cdn --> gate : in the absence of cache
+gate --> auth : JWT validation
+gate --> meta : CRUD metadata
+gate --> sync : upload/download
+meta --> db : JDBC
+meta --> redis : cache
+sync --> s3 : S3 API
+sync --> kafka : events (upload, share)
+kafka --> meta : status update
+@enduml
