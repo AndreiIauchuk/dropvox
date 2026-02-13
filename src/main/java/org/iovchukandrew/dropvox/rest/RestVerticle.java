@@ -3,7 +3,9 @@ package org.iovchukandrew.dropvox.rest;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.VerticleBase;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Route;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
 
@@ -17,7 +19,8 @@ public class RestVerticle extends VerticleBase {
         router.route().handler(BodyHandler.create());
 
         basicRoute();
-        getFileRoute();
+        basicChunked();
+        fileRoute();
 
         return vertx.createHttpServer()
                 .requestHandler(router)
@@ -42,7 +45,30 @@ public class RestVerticle extends VerticleBase {
         });
     }
 
-    private void getFileRoute() {
+    private void basicChunked() {
+        Route route = router.route("/chunked");
+        route.handler(ctx -> {
+
+            HttpServerResponse response = ctx.response();
+            response.setChunked(true);
+            response.write("route1\n");
+            ctx.vertx().setTimer(5000, tid -> ctx.next());
+        });
+
+        route.handler(ctx -> {
+            HttpServerResponse response = ctx.response();
+            response.write("route2\n");
+            ctx.vertx().setTimer(5000, tid -> ctx.next());
+        });
+
+        route.handler(ctx -> {
+            HttpServerResponse response = ctx.response();
+            response.write("route3");
+            ctx.response().end();
+        });
+    }
+
+    private void fileRoute() {
         router.get("/files/:id").respond(ctx -> {
             String fileId = ctx.pathParam("id");
             JsonObject response = new JsonObject()
