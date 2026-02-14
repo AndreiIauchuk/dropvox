@@ -1,0 +1,36 @@
+@startuml
+title Upload File Sequence
+
+actor "User" as user
+participant "API Gateway" as gate
+participant "Auth Service" as auth
+participant "Metadata Service" as metadata
+participant "Redis" as redis
+participant "PostgreSQL" as db
+participant "MinIO" as s3
+
+user -> gate: POST /files (filename, size, contentType)
+gate -> auth: validate JWT
+auth --> gate: OK
+gate -> metadata: request presigned URL
+metadata -> db: INSERT metadata (status='uploading')
+metadata -> s3: request presignedURL(PUT, bucket, key)
+s3 --> metadata: presigned URL
+metadata --> gate: metadata + presignedURL
+gate --> user: metadata + presignedURL
+|||
+user -> s3: PUT {uploadUrl}
+s3 --> user: 200 OK
+|||
+user -> gate: POST /files/complete (metadata)
+gate -> auth: validate JWT
+auth --> gate: OK
+gate -> metadata: confirm upload complete
+metadata -> db: UPDATE files SET status='uploaded', size=actual, etc.
+metadata -> redis: cache metadata (optional)
+metadata --> gate: success (metadata)
+gate --> user: 201 Created (metadata)
+|||
+
+note right of user : TODO File failed to be uploaded path
+@enduml
