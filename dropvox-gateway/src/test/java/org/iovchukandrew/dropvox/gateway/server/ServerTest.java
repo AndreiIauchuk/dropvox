@@ -1,12 +1,10 @@
-package org.iovchukandrew.dropvox.gateway.rest.server;
-
-import org.iovchukandrew.dropvox.gateway.server.Server;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+package org.iovchukandrew.dropvox.gateway.server;
 
 import io.vertx.core.Vertx;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(VertxExtension.class)
 public class ServerTest {

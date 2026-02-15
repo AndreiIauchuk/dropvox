@@ -1,4 +1,4 @@
-package org.iovchukandrew.dropvox.gateway.server.handler;
+package org.iovchukandrew.dropvox.gateway.server;
 
 import org.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
 import org.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
@@ -8,25 +8,14 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 /**
- * Handles GET /files/{id} requests in the API Gateway.
- * Coordinates calls to Auth Service and Metadata Service.
+ * Handles GET /files/:id requests.
  */
 public class FileDownloadHandler {
 
     private final AuthServiceClient authServiceClient;
     private final MetadataServiceClient metadataServiceClient;
 
-    /**
-     * Constructs the handler with injected dependencies.
-     *
-     * @param vertx    the Vert.x instance
-     * @param authHost host of the Auth Service
-     * @param authPort port of the Auth Service
-     * @param metaHost host of the Metadata Service
-     * @param metaPort port of the Metadata Service
-     */
     public FileDownloadHandler(
-            Vertx vertx,
             AuthServiceClient authServiceClient,
             MetadataServiceClient metadataServiceClient) {
         this.authServiceClient = authServiceClient;

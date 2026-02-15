@@ -1,4 +1,4 @@
-package org.iovchukandrew.dropvox.gateway.rest.server.handler;
+package org.iovchukandrew.dropvox.gateway.server;
 
 import org.junit.jupiter.api.extension.ExtendWith;
 

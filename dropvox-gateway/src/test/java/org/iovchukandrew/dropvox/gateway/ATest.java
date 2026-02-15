@@ -1,4 +1,4 @@
-package org.iovchukandrew.dropvox.gateway.rest;
+package org.iovchukandrew.dropvox.gateway;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientAgent;
