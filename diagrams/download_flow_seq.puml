@@ -1,4 +1,4 @@
-@startuml
+@startuml download_file_seq
 title Download File Sequence
 
 actor "User" as user

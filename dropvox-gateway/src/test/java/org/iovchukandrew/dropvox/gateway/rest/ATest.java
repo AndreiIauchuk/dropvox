@@ -1,4 +1,4 @@
-package org.iovchukandrew.dropvox.rest;
+package org.iovchukandrew.dropvox.gateway.rest;
 
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientAgent;
@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Deprecated
 public class ATest {
     Vertx vertx = Vertx.vertx();
 

@@ -1,4 +1,4 @@
-@startuml
+@startuml upload_file_seq
 title Upload File Sequence
 
 actor "User" as user

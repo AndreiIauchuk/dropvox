@@ -1,4 +1,4 @@
-@startuml
+@startuml highlevel_structural
 title High-Level Architecture
 
 actor "User" as user

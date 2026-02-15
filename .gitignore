@@ -3,11 +3,10 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin
+.editorconfig
 
 ### IntelliJ IDEA ###
 .idea/
-.idea/misc.xml
-.idea/vcs.xml
 *.iws
 *.iml
 *.ipr
