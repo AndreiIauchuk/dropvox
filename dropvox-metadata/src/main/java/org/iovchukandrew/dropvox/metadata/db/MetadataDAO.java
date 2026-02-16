@@ -6,6 +6,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Pool;
 
 //TODO Rename to FilesDAO? looks like it will only quirying FIlES table
+
 /**
  * Data access object for file metadata.
  */
@@ -13,8 +14,8 @@ public class MetadataDAO {
 
     private final Pool pool;
 
-    public MetadataDAO(Vertx vertx) {
-        pool = PgPoolCreator.create(vertx);
+    public MetadataDAO(Vertx vertx, Pool pool) {
+        this.pool = pool;
     }
 
     /**
