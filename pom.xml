@@ -19,6 +19,7 @@
         <junit-jupiter.version>6.0.2</junit-jupiter.version>
         <mockito.version>5.21.0</mockito.version>
         <assertj.version>3.27.7</assertj.version>
+        <amazon.awssdk.version>2.41.29</amazon.awssdk.version>
 
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
@@ -43,7 +44,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>6.0.2</version>
+            <version>${junit-jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -64,11 +65,30 @@
             <version>${vertx.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-web-client</artifactId>
-            <version>${vertx.version}</version>
-        </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.vertx</groupId>
+                <artifactId>vertx-web-client</artifactId>
+                <version>${vertx.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.vertx</groupId>
+                <artifactId>vertx-pg-client</artifactId>
+                <version>${vertx.version}</version>
+                <scope>compile</scope>
+            </dependency>
+            <!-- S3 MinIO -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${amazon.awssdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
 </project>

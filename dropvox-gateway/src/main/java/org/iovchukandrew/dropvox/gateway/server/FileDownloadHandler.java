@@ -1,11 +1,9 @@
 package org.iovchukandrew.dropvox.gateway.server;
 
-import org.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
-import org.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
-
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import org.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
+import org.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
 
 /**
  * Handles GET /files/:id requests.

@@ -4,11 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.iovchukandrew.dropvox.metadata.db.MetadataDAO;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-
-import java.time.Duration;
+import org.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 
 /**
  * Handles GET /files/:id requests.
@@ -16,13 +12,14 @@ import java.time.Duration;
 public class FileDownloadHandler {
 
     private final MetadataDAO metadataDAO;
-    private final S3Presigner s3Presigner;
-    private final String bucketName;
+    private final S3PresignedUrlGenerator s3PresignedUrlGenerator;
 
-    public FileDownloadHandler(MetadataDAO metadataDAO, S3Presigner s3Presigner, String bucketName) {
+    public FileDownloadHandler(
+            MetadataDAO metadataDAO,
+            S3PresignedUrlGenerator s3PresignedUrlGenerator
+    ) {
         this.metadataDAO = metadataDAO;
-        this.s3Presigner = s3Presigner;
-        this.bucketName = bucketName;
+        this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
     }
 
     /**
@@ -39,27 +36,12 @@ public class FileDownloadHandler {
 
         metadataDAO.findFileByIdAndUser(fileId, userId)
                 .compose(metadata -> {
-                    // Generate presigned URL locally
-                    String presignedUrl = generatePresignedUrl(metadata.getString("s3Key"));
+                    String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(metadata.getString("s3Key"));
                     metadata.put("downloadUrl", presignedUrl);
                     return Future.succeededFuture(metadata);
                 })
                 .onSuccess(metadata -> sendResponse(ctx, metadata))
                 .onFailure(err -> handleError(ctx, err));
-    }
-
-    private String generatePresignedUrl(String s3Key) {
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(s3Key)
-                .build();
-
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(5))
-                .getObjectRequest(getObjectRequest)
-                .build();
-
-        return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 
     private void sendResponse(RoutingContext ctx, JsonObject metadata) {

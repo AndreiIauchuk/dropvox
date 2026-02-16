@@ -10,4 +10,11 @@
     </parent>
 
     <artifactId>dropvox-auth</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web-client</artifactId>
+        </dependency>
+    </dependencies>
 </project>

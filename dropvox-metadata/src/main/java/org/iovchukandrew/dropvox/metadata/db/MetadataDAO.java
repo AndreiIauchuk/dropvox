@@ -1,18 +1,20 @@
 package org.iovchukandrew.dropvox.metadata.db;
 
 import io.vertx.core.Future;
-import io.vertx.core.VerticleBase;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.sqlclient.Pool;
 
+//TODO Rename to FilesDAO? looks like it will only quirying FIlES table
 /**
  * Data access object for file metadata.
  */
 public class MetadataDAO {
 
-    private final PgPool pgPool;
+    private final Pool pool;
 
-    public MetadataDAO(PgPool pgPool) {
-        this.pgPool = pgPool;
+    public MetadataDAO(Vertx vertx) {
+        pool = PgPoolCreator.create(vertx);
     }
 
     /**
@@ -23,10 +25,16 @@ public class MetadataDAO {
      * @return Future containing file metadata as JsonObject
      */
     public Future<JsonObject> findFileByIdAndUser(String fileId, String userId) {
-        String sql = "SELECT id, name, size, content_type, s3_key, created_at " +
+        System.out.println("Retrieving file metadata");
+        return Future.succeededFuture(
+                new JsonObject()
+                        .put("s3Key", "beautiful s3 key")
+        );
+
+        /*String sql = "SELECT id, name, size, content_type, s3_key, created_at " +
                 "FROM files WHERE id = $1 AND owner_id = $2";
 
-        return pgPool.preparedQuery(sql)
+        return pool.preparedQuery(sql)
                 .execute(Tuple.of(fileId, userId))
                 .compose(rows -> {
                     if (rows.size() == 0) {
@@ -41,6 +49,6 @@ public class MetadataDAO {
                             .put("s3Key", row.getString("s3_key"))
                             .put("createdAt", row.getLocalDateTime("created_at").toString());
                     return Future.succeededFuture(result);
-                });
+                });*/
     }
 }

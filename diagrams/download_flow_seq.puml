@@ -17,8 +17,7 @@ gate -> metadata: GET file metadata & request presignedURL
 metadata -> redis: retrieved cached metadata
 metadata -> db: (optional) retrieved metadata if not cached
 |||
-metadata -> s3: request presignedURL(GET, bucket, key)
-s3 --> metadata: presignedURL
+metadata -> metadata: generate presignedURL(bucket, key)
 metadata --> gate: metadata + presignedURL
 gate --> user: metadata + presignedURL
 user -> s3: GET {presignedURL}

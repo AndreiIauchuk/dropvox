@@ -14,8 +14,7 @@ gate -> auth: validate JWT
 auth --> gate: OK
 gate -> metadata: request presigned URL
 metadata -> db: INSERT metadata (status='uploading')
-metadata -> s3: request presignedURL(PUT, bucket, key)
-s3 --> metadata: presigned URL
+metadata -> metadata: generate presignedURL(bucket, key)
 metadata --> gate: metadata + presignedURL
 gate --> user: metadata + presignedURL
 |||
