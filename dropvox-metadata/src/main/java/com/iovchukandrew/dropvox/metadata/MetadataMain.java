@@ -114,7 +114,7 @@ public class MetadataMain {
                     .get(10, TimeUnit.SECONDS);
             log.info("Vertx is closed");
         } catch (Exception e) {
-            log.error("Error closing Vertx: " + e.getMessage());
+            log.error("Error closing Vertx: {}", e.getMessage());
         }
     }
 
