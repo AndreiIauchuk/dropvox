@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: dropvox-postgres
+    environment:
+      POSTGRES_DB: dropvox
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - dropvox-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d dropvox" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: dropvox-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    networks:
+      - dropvox-net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  metadata-service:
+    build:
+      context: ./dropvox-metadata
+      dockerfile: Dockerfile
+    container_name: dropvox-metadata
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: dropvox
+      DB_USER: user
+      DB_PASSWORD: pass
+      DB_POOL_MAX_SIZE: 20
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: dropvox-files
+      S3_REGION: us-east-1
+      PRESIGNED_URL_EXPIRY_MINUTES: 5
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - dropvox-net
+
+  auth-service:
+    build:
+      context: ./dropvox-auth
+      dockerfile: Dockerfile
+    container_name: dropvox-auth
+    environment:
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dropvox-net
+
+  gateway:
+    build:
+      context: ./dropvox-gateway
+      dockerfile: Dockerfile
+    container_name: dropvox-gateway
+    environment:
+      SERVER_PORT: 8080
+      AUTH_SERVICE_HOST: auth-service
+      AUTH_SERVICE_PORT: 8081
+      METADATA_SERVICE_HOST: metadata-service
+      METADATA_SERVICE_PORT: 8082
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - metadata-service
+    networks:
+      - dropvox-net
+
+volumes:
+  pgdata:
+  miniodata:
+
+networks:
+  dropvox-net:
+    driver: bridge
