@@ -1,10 +1,10 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
+import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
+import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
-import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 
 /**
  * Handles GET /files/:id requests.
@@ -41,7 +41,7 @@ public class FileDownloadHandler {
                     return Future.succeededFuture(metadata);
                 })
                 .onSuccess(metadata -> sendResponse(ctx, metadata))
-                .onFailure(err -> handleError(ctx, err));
+                .onFailure(e -> handleError(ctx, e));
     }
 
     private void sendResponse(RoutingContext ctx, JsonObject metadata) {
