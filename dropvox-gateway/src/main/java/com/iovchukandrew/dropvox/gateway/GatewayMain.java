@@ -1,9 +1,13 @@
 package com.iovchukandrew.dropvox.gateway;
 
-import io.vertx.core.Vertx;
 import com.iovchukandrew.dropvox.gateway.server.Server;
+import io.vertx.core.Vertx;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GatewayMain {
+    private static final Logger log = LoggerFactory.getLogger(GatewayMain.class);
+
     public static void main(String[] args) {
         startServer();
     }
@@ -11,7 +15,7 @@ public class GatewayMain {
     private static void startServer() {
         Vertx vertx = Vertx.vertx();
         vertx.deployVerticle(new Server())
-                .onSuccess(id -> System.out.println("Verticle deployed, id: " + id))
+                .onSuccess(id -> log.info("Verticle deployed, id: {}", id))
                 .onFailure(Throwable::printStackTrace);
     }
 }

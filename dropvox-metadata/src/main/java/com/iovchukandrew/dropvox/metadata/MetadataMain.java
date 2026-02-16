@@ -1,12 +1,13 @@
 package com.iovchukandrew.dropvox.metadata;
 
-import io.vertx.core.Vertx;
-
-import io.vertx.sqlclient.Pool;
 import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
 import com.iovchukandrew.dropvox.metadata.db.PgPoolCreator;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import com.iovchukandrew.dropvox.metadata.server.Server;
+import io.vertx.core.Vertx;
+import io.vertx.sqlclient.Pool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -18,7 +19,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 public class MetadataMain {
+    private static final Logger log = LoggerFactory.getLogger(MetadataMain.class);
+
     public static void main(String[] args) {
+        configLogging();
+
         CountDownLatch shutdownLatch = new CountDownLatch(1);
 
         Vertx vertx = Vertx.vertx();
@@ -58,9 +63,9 @@ public class MetadataMain {
             CountDownLatch shutdownLatch
     ) {
         vertx.deployVerticle(new Server(metadataDAO, s3PresignedUrlGenerator))
-                .onSuccess(id -> System.out.println("Verticle deployed, id: " + id))
+                .onSuccess(id -> log.info("Verticle deployed, id: {}", id))
                 .onFailure(err -> {
-                    System.err.println("Failed to deploy verticle: " + err.getMessage());
+                    log.error("Failed to deploy verticle: {}", err.getMessage());
                     closeSqlPool(sqlPool);
                     closeS3Presigner(s3Presigner);
                     closeVertx(vertx);
@@ -82,34 +87,39 @@ public class MetadataMain {
     }
 
     private static void closeSqlPool(Pool sqlPool) {
-        System.out.println("Closing SQLPool...");
+        log.info("Closing SQLPool...");
         try {
             sqlPool.close()
                     .toCompletionStage()
                     .toCompletableFuture()
                     .get(5, TimeUnit.SECONDS);
-            System.out.println("SQLPool closed");
+            log.info("SQLPool closed");
         } catch (Exception e) {
-            System.err.println("Error closing SQLPool: " + e.getMessage());
+            log.error("Error closing SQLPool: {}", e.getMessage());
         }
     }
 
     private static void closeS3Presigner(S3Presigner s3Presigner) {
-        System.out.println("Closing S3Presigner...");
+        log.info("Closing S3Presigner...");
         s3Presigner.close();
-        System.out.println("S3Presigner is closed");
+        log.info("S3Presigner is closed");
     }
 
     private static void closeVertx(Vertx vertx) {
-        System.out.println("Closing Vertx...");
+        log.info("Closing Vertx...");
         try {
             vertx.close()
                     .toCompletionStage()
                     .toCompletableFuture()
                     .get(10, TimeUnit.SECONDS);
-            System.out.println("Vertx is closed");
+            log.info("Vertx is closed");
         } catch (Exception e) {
-            System.err.println("Error closing Vertx: " + e.getMessage());
+            log.error("Error closing Vertx: " + e.getMessage());
         }
+    }
+
+    private static void configLogging() {
+        System.setProperty("vertx.logger-delegate-factory-class-name",
+                "io.vertx.core.logging.SLF4JLogDelegateFactory");
     }
 }

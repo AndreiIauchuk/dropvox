@@ -1,5 +1,7 @@
 package com.iovchukandrew.dropvox.metadata.s3;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.time.Duration;
@@ -8,6 +10,7 @@ import java.time.Duration;
  * Generate presigned URLs.
  */
 public class S3PresignedUrlGenerator {
+    private static final Logger log = LoggerFactory.getLogger(S3PresignedUrlGenerator.class);
 
     private final S3Presigner s3Presigner;
     private final String bucketName;
@@ -20,7 +23,7 @@ public class S3PresignedUrlGenerator {
     }
 
     public String generateGetUrl(String s3Key) {
-        System.out.println("Generating PresignedUrl");
+        log.info("Generating PresignedUrl");
         return "mocked PresignedUrl by " + s3Key;
         /*GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)

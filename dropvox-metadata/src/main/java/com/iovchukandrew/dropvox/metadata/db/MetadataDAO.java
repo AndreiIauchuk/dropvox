@@ -4,6 +4,8 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Pool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 //TODO Rename to FilesDAO? looks like it will only quirying FIlES table
 
@@ -11,6 +13,7 @@ import io.vertx.sqlclient.Pool;
  * Data access object for file metadata.
  */
 public class MetadataDAO {
+    private static final Logger log = LoggerFactory.getLogger(MetadataDAO.class);
 
     private final Pool pool;
 
@@ -26,7 +29,7 @@ public class MetadataDAO {
      * @return Future containing file metadata as JsonObject
      */
     public Future<JsonObject> findFileByIdAndUser(String fileId, String userId) {
-        System.out.println("Retrieving file metadata");
+        log.info("Retrieving file metadata");
         return Future.succeededFuture(
                 new JsonObject()
                         .put("s3Key", "beautiful s3 key")
