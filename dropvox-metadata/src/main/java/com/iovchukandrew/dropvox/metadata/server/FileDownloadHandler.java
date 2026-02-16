@@ -5,6 +5,7 @@ import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import software.amazon.awssdk.http.HttpStatusCode;
 
 /**
  * Handles GET /files/:id requests.
@@ -46,13 +47,14 @@ public class FileDownloadHandler {
 
     private void sendResponse(RoutingContext ctx, JsonObject metadata) {
         ctx.response()
-                .setStatusCode(200)
+                .setStatusCode(HttpStatusCode.OK)
                 .putHeader("Content-Type", "application/json")
                 .end(metadata.toBuffer());
     }
 
-    private void handleError(RoutingContext ctx, Throwable err) {
-        //Log the error appropriately
-        ctx.response().setStatusCode(500).end(err.getMessage());
+    private void handleError(RoutingContext ctx, Throwable e) {
+        ctx.response()
+                .setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR)
+                .end(e.getMessage());
     }
 }

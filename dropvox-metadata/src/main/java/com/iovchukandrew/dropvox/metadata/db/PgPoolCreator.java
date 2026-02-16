@@ -16,7 +16,7 @@ public class PgPoolCreator {
                 .setPort(config.getInteger("db.port"))
                 .setDatabase(config.getString("db.database"))
                 .setUser(config.getString("db.user"))
-                .setPassword(config.getString("db.password")); //TODO Actual password here
+                .setPassword(config.getString("db.password"));
 
         PoolOptions poolOptions = new PoolOptions().setMaxSize(config.getInteger("db.pool.maxSize"));
 

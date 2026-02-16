@@ -14,8 +14,10 @@ user -> gate: GET /files/{id}
 gate -> auth: validate JWT
 auth --> gate: OK
 gate -> metadata: GET file metadata & request presignedURL
-metadata -> redis: retrieved cached metadata
-metadata -> db: (optional) retrieved metadata if not cached
+metadata -> redis: querying cached metadata
+redis --> metadata: (if exist and valid) metadata
+metadata -> db: (if Redis doesn't return) querying metadata
+db --> metadata: metadata
 |||
 metadata -> metadata: generate presignedURL(bucket, key)
 metadata --> gate: metadata + presignedURL
