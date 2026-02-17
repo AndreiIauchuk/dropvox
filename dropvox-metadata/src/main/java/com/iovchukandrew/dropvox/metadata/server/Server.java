@@ -32,7 +32,7 @@ public class Server extends VerticleBase {
 
         return vertx.createHttpServer()
                 .requestHandler(router)
-                .listen(config.getInteger("config"))
+                .listen(config.getInteger("server.port"))
                 .onSuccess(s -> log.info("Server started on port 8082"))
                 .onFailure(e -> log.error("Failed to deploy Server verticle", e));
     }
