@@ -1,6 +1,6 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
-import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
+import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
@@ -13,12 +13,12 @@ import org.slf4j.LoggerFactory;
 public class Server extends VerticleBase {
     private static final Logger log = LoggerFactory.getLogger(Server.class);
 
-    private final MetadataDAO metadataDAO;
+    private final FilesDAO filesDAO;
     private final S3PresignedUrlGenerator s3PresignedUrlGenerator;
     private final JsonObject config;
 
-    public Server(MetadataDAO metadataDAO, S3PresignedUrlGenerator s3PresignedUrlGenerator, JsonObject config) {
-        this.metadataDAO = metadataDAO;
+    public Server(FilesDAO filesDAO, S3PresignedUrlGenerator s3PresignedUrlGenerator, JsonObject config) {
+        this.filesDAO = filesDAO;
         this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
         this.config = config;
     }
@@ -27,7 +27,7 @@ public class Server extends VerticleBase {
     public Future<HttpServer> start() {
         Router router = Router.router(vertx);
 
-        FileDownloadHandler handler = new FileDownloadHandler(metadataDAO, s3PresignedUrlGenerator);
+        FileDownloadHandler handler = new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator);
         router.get("/files/:id").handler(handler::handle);
 
         return vertx.createHttpServer()

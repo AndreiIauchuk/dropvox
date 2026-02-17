@@ -22,6 +22,8 @@
         <amazon.awssdk.version>2.41.29</amazon.awssdk.version>
         <logback.version>1.5.31</logback.version>
         <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
+        <flyway.version>12.0.1</flyway.version>
+        <postgresql-driver.version>42.7.10</postgresql-driver.version>
 
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
@@ -71,6 +73,18 @@
             <artifactId>vertx-junit5</artifactId>
             <version>${vertx.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- PostgreSQL -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql-driver.version}</version>
         </dependency>
 
         <!-- Logging -->

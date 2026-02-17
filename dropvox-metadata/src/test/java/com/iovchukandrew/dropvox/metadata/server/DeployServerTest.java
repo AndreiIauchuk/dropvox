@@ -1,6 +1,6 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
-import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
+import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
@@ -17,7 +17,7 @@ import org.mockito.Mock;
 public class DeployServerTest {
 
     @Mock
-    MetadataDAO metadataDAO;
+    FilesDAO filesDAO;
     @Mock
     S3PresignedUrlGenerator s3PresignedUrlGenerator;
 
@@ -30,7 +30,7 @@ public class DeployServerTest {
     }
 
     private void deployServer(Vertx vertx, VertxTestContext testContext, JsonObject config) {
-        vertx.deployVerticle(new Server(metadataDAO, s3PresignedUrlGenerator, config))
+        vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
                 .onComplete(handler -> {
                     if (handler.succeeded()) {
                         testContext.completeNow();

@@ -12,12 +12,12 @@ import org.slf4j.LoggerFactory;
 /**
  * Data access object for file metadata.
  */
-public class MetadataDAO {
-    private static final Logger log = LoggerFactory.getLogger(MetadataDAO.class);
+public class FilesDAO {
+    private static final Logger log = LoggerFactory.getLogger(FilesDAO.class);
 
     private final Pool pool;
 
-    public MetadataDAO(Vertx vertx, Pool pool) {
+    public FilesDAO(Vertx vertx, Pool pool) {
         this.pool = pool;
     }
 
@@ -25,7 +25,7 @@ public class MetadataDAO {
      * Retrieves file metadata for a given file ID and owner ID.
      *
      * @param fileId the file identifier
-     * @param userId the owner identifier
+     * @param userId the file owner identifier
      * @return Future containing file metadata as JsonObject
      */
     public Future<JsonObject> findFileByIdAndUser(String fileId, String userId) {

@@ -1,6 +1,6 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
-import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
+import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -12,14 +12,14 @@ import software.amazon.awssdk.http.HttpStatusCode;
  */
 public class FileDownloadHandler {
 
-    private final MetadataDAO metadataDAO;
+    private final FilesDAO filesDAO;
     private final S3PresignedUrlGenerator s3PresignedUrlGenerator;
 
     public FileDownloadHandler(
-            MetadataDAO metadataDAO,
+            FilesDAO filesDAO,
             S3PresignedUrlGenerator s3PresignedUrlGenerator
     ) {
-        this.metadataDAO = metadataDAO;
+        this.filesDAO = filesDAO;
         this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
     }
 
@@ -35,7 +35,7 @@ public class FileDownloadHandler {
             return;
         }
 
-        metadataDAO.findFileByIdAndUser(fileId, userId)
+        filesDAO.findFileByIdAndUser(fileId, userId)
                 .compose(metadata -> {
                     String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(metadata.getString("s3Key"));
                     metadata.put("downloadUrl", presignedUrl);

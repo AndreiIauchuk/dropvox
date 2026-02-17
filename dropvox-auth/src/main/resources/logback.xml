@@ -7,9 +7,9 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/auth-service.log</file>
+        <file>logs/dropvox-auth.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/auth-service.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>logs/dropvox-auth.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>

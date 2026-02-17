@@ -1,6 +1,7 @@
 package com.iovchukandrew.dropvox.metadata;
 
-import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
+import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
+import com.iovchukandrew.dropvox.metadata.db.FlywayRunner;
 import com.iovchukandrew.dropvox.metadata.db.PgPoolCreator;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import com.iovchukandrew.dropvox.metadata.server.Server;
@@ -19,6 +20,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -36,6 +39,8 @@ public class MetadataMain {
         configRetriever.getConfig()
                 .onSuccess(config -> {
                     log.info("Configuration loaded successfully");
+                    parseEnvVars(config);
+                    new FlywayRunner().runMigration(config);
                     startApplication(vertx, config, shutdownLatch);
                 })
                 .onFailure(e -> {
@@ -60,15 +65,29 @@ public class MetadataMain {
 
         ConfigStoreOptions envStore = new ConfigStoreOptions()
                 .setType("env")
-                .setConfig(new JsonObject().put("raw-data", true)); //env vars will overwrite properties from file
+                .setConfig(new JsonObject()); //env vars will overwrite properties from file
 
-        return ConfigRetriever.create(vertx,
-                new ConfigRetrieverOptions().addStore(fileStore).addStore(envStore));
+        return ConfigRetriever.create(
+                vertx,
+                new ConfigRetrieverOptions()
+                        .addStore(fileStore)
+                        .addStore(envStore));
+    }
+
+    private static void parseEnvVars(JsonObject config) {
+        Map<String, Object> updates = new HashMap<>();
+        config.fieldNames()
+                .forEach(envKey -> {
+                    String configKey = envKey.toLowerCase().replaceAll("_", ".");
+                    updates.put(configKey, config.getValue(envKey));
+                });
+
+        updates.forEach(config::put);
     }
 
     private static void startApplication(Vertx vertx, JsonObject config, CountDownLatch shutdownLatch) {
         var sqlPool = PgPoolCreator.create(vertx, config);
-        var metadataDAO = new MetadataDAO(vertx, sqlPool);
+        var metadataDAO = new FilesDAO(vertx, sqlPool);
         var s3Presigner = createS3Presigner(config);
         var s3PresignedUrlGenerator = createS3PresignedUrlGenerator(s3Presigner, config);
 
@@ -93,14 +112,14 @@ public class MetadataMain {
 
     private static void deployServer(
             Vertx vertx,
-            MetadataDAO metadataDAO,
+            FilesDAO filesDAO,
             S3PresignedUrlGenerator s3PresignedUrlGenerator,
             Pool sqlPool,
             S3Presigner s3Presigner,
             CountDownLatch shutdownLatch,
             JsonObject config
     ) {
-        vertx.deployVerticle(new Server(metadataDAO, s3PresignedUrlGenerator, config))
+        vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
                 .onSuccess(id -> log.info("Verticle deployed, id: {}", id))
                 .onFailure(e -> {
                     log.error("Failed to deploy verticle", e);
