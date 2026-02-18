@@ -20,7 +20,6 @@ public class FlywayRunner {
         Flyway flyway = Flyway.configure()
                 .dataSource(jdbcUrl, user, password)
                 .schemas(config.getString("db.scheme"))
-                .driver()
                 .load();
         flyway.migrate();
         log.info("Flyway migration complete");

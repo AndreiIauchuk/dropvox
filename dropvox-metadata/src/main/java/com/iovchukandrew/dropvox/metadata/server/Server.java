@@ -30,10 +30,11 @@ public class Server extends VerticleBase {
         FileDownloadHandler handler = new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator);
         router.get("/files/:id").handler(handler::handle);
 
+        int port = config.getInteger("server.port");
         return vertx.createHttpServer()
                 .requestHandler(router)
-                .listen(config.getInteger("server.port"))
-                .onSuccess(s -> log.info("Server started on port 8082"))
-                .onFailure(e -> log.error("Failed to deploy Server verticle", e));
+                .listen(port)
+                .onSuccess(s -> log.info("Server started on {} port", port))
+                .onFailure(e -> log.error("Failed to deploy Server verticle on port {}", port, e));
     }
 }

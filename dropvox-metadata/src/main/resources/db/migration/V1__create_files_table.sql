@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS dropvox.files (
     name VARCHAR(255) NOT NULL,
     size BIGINT NOT NULL,
     content_type VARCHAR(255),
+    owner_id UUID NOT NULL,
+    bucket VARCHAR(63) NOT NULL,
     s3_key VARCHAR(512) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

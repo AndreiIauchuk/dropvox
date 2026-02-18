@@ -35,9 +35,12 @@ public class FileDownloadHandler {
             return;
         }
 
-        filesDAO.findFileByIdAndUser(fileId, userId)
+        filesDAO.findFileByIdAndOwner(fileId, userId)
                 .compose(metadata -> {
-                    String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(metadata.getString("s3Key"));
+                    String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(
+                            metadata.getString("s3.bucket"),
+                            metadata.getString("s3.accessKey")
+                    );
                     metadata.put("downloadUrl", presignedUrl);
                     return Future.succeededFuture(metadata);
                 })

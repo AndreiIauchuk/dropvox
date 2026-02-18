@@ -19,7 +19,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.net.URI;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -58,10 +57,15 @@ public class MetadataMain {
     }
 
     private static ConfigRetriever createConfigRetriever(Vertx vertx) {
+        String propertiesFile = System.getenv("PROP_FILE");
+        if (propertiesFile == null) {
+            propertiesFile = "application.properties";
+        }
+
         ConfigStoreOptions fileStore = new ConfigStoreOptions()
                 .setType("file")
                 .setFormat("properties")
-                .setConfig(new JsonObject().put("path", "application.properties"));
+                .setConfig(new JsonObject().put("path", propertiesFile));
 
         ConfigStoreOptions envStore = new ConfigStoreOptions()
                 .setType("env")
@@ -89,7 +93,7 @@ public class MetadataMain {
         var sqlPool = PgPoolCreator.create(vertx, config);
         var metadataDAO = new FilesDAO(vertx, sqlPool);
         var s3Presigner = createS3Presigner(config);
-        var s3PresignedUrlGenerator = createS3PresignedUrlGenerator(s3Presigner, config);
+        var s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
 
         setupShutdownHook(vertx, sqlPool, s3Presigner, shutdownLatch);
 
@@ -139,13 +143,6 @@ public class MetadataMain {
                 )
                 .region(Region.of(config.getString("s3.region", "us-east-1")))
                 .build();
-    }
-
-    private static S3PresignedUrlGenerator createS3PresignedUrlGenerator(S3Presigner s3Presigner, JsonObject config) {
-        return new S3PresignedUrlGenerator(
-                s3Presigner,
-                config.getString("s3.bucket"),
-                Duration.ofMinutes(config.getInteger("presigned.url.expiry.minutes", 5)));
     }
 
     private static void closePgPool(Pool sqlPool) {

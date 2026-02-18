@@ -24,7 +24,7 @@ public class Server extends VerticleBase {
 
         return vertx.createHttpServer()
                 .requestHandler(router)
-                .listen(8080)
+                .listen(8080) //TODO From config
                 .onSuccess(s -> log.info("Server started on port 8082"))
                 .onFailure(Throwable::printStackTrace);
     }

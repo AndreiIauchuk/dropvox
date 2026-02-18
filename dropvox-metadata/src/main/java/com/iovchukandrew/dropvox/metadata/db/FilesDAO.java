@@ -25,13 +25,14 @@ public class FilesDAO {
      * Retrieves file metadata for a given file ID and owner ID.
      *
      * @param fileId the file identifier
-     * @param userId the file owner identifier
+     * @param ownerId the file owner identifier
      * @return Future containing file metadata as JsonObject
      */
-    public Future<JsonObject> findFileByIdAndUser(String fileId, String userId) {
+    public Future<JsonObject> findFileByIdAndOwner(String fileId, String ownerId) {
         log.info("Retrieving file metadata");
         return Future.succeededFuture(
                 new JsonObject()
+                        .put("bucket", "beautiful bucket")
                         .put("s3Key", "beautiful s3 key")
         );
 
@@ -50,6 +51,8 @@ public class FilesDAO {
                             .put("name", row.getString("name"))
                             .put("size", row.getLong("size"))
                             .put("contentType", row.getString("content_type"))
+                            .put("ownerId", row.getString("owner_id"))
+                            .put("bucket", row.getString("bucket"))
                             .put("s3Key", row.getString("s3_key"))
                             .put("createdAt", row.getLocalDateTime("created_at").toString());
                     return Future.succeededFuture(result);
