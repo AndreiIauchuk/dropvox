@@ -1,6 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS dropvox;
+CREATE SCHEMA IF NOT EXISTS metadata;
 
-CREATE TABLE IF NOT EXISTS dropvox.files (
+CREATE TABLE IF NOT EXISTS metadata.files (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     size BIGINT NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS dropvox.files (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE OR REPLACE FUNCTION dropvox.update_updated_at_column()
+CREATE OR REPLACE FUNCTION metadata.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -20,8 +20,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_update_updated_at ON dropvox.files;
+DROP TRIGGER IF EXISTS trigger_update_updated_at ON metadata.files;
 CREATE TRIGGER trigger_update_updated_at
-    BEFORE UPDATE ON dropvox.files
+    BEFORE UPDATE ON metadata.files
     FOR EACH ROW
-    EXECUTE FUNCTION dropvox.update_updated_at_column();
+    EXECUTE FUNCTION metadata.update_updated_at_column();
