@@ -8,9 +8,10 @@ import com.iovchukandrew.dropvox.metadata.server.Server;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import io.vertx.sqlclient.Pool;
+import org.flywaydb.core.api.output.MigrateResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -21,39 +22,32 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class MetadataMain {
     private static final Logger log = LoggerFactory.getLogger(MetadataMain.class);
 
     public static void main(String[] args) {
         configureLogging();
+        log.info("Application started");
 
         Vertx vertx = Vertx.vertx();
 
         ConfigRetriever configRetriever = createConfigRetriever(vertx);
 
-        CountDownLatch shutdownLatch = new CountDownLatch(1);
         configRetriever.getConfig()
-                .onSuccess(config -> {
+                .compose(config -> {
                     log.info("Configuration loaded successfully");
                     parseEnvVars(config);
-                    new FlywayRunner().runMigration(config);
-                    startApplication(vertx, config, shutdownLatch);
+                    return runFlywayMigration(vertx, config).map(r -> config);
                 })
+                .compose(config -> startApplication(vertx, config))
+                .onSuccess(ctx -> setupShutdownHook(vertx, ctx))
                 .onFailure(e -> {
-                    log.error("Failed to load configuration", e);
-                    closeVertx(vertx);
-                    shutdownLatch.countDown();
-                    System.exit(1);
+                    log.error("Failed to start an application", e);
+                    AppContext.closeVertx(vertx);
                 });
-
-        try {
-            shutdownLatch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private static ConfigRetriever createConfigRetriever(Vertx vertx) {
@@ -67,9 +61,10 @@ public class MetadataMain {
                 .setFormat("properties")
                 .setConfig(new JsonObject().put("path", propertiesFile));
 
+        //env vars will overwrite properties from file
         ConfigStoreOptions envStore = new ConfigStoreOptions()
                 .setType("env")
-                .setConfig(new JsonObject()); //env vars will overwrite properties from file
+                .setConfig(new JsonObject());
 
         return ConfigRetriever.create(
                 vertx,
@@ -89,49 +84,38 @@ public class MetadataMain {
         updates.forEach(config::put);
     }
 
-    private static void startApplication(Vertx vertx, JsonObject config, CountDownLatch shutdownLatch) {
+    private static Future<MigrateResult> runFlywayMigration(Vertx vertx, JsonObject config) {
+        return vertx.executeBlocking(() -> new FlywayRunner().runMigration(config));
+    }
+
+    private static Future<AppContext> startApplication(Vertx vertx, JsonObject config) {
         var sqlPool = PgPoolCreator.create(vertx, config);
-        var metadataDAO = new FilesDAO(vertx, sqlPool);
         var s3Presigner = createS3Presigner(config);
         var s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
+        var metadataDAO = new FilesDAO(vertx, sqlPool);
 
-        setupShutdownHook(vertx, sqlPool, s3Presigner, shutdownLatch);
-
-        deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, sqlPool, s3Presigner, shutdownLatch, config);
+        return deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, config)
+                .map(id -> new AppContext(sqlPool, s3Presigner));
     }
 
-    private static void setupShutdownHook(
-            Vertx vertx, Pool sqlPool, S3Presigner s3Presigner, CountDownLatch shutdownLatch) {
-        Runtime.getRuntime().addShutdownHook(
-                new Thread(
-                        () -> {
-                            closePgPool(sqlPool);
-                            closeS3Presigner(s3Presigner);
-                            closeVertx(vertx);
-                            shutdownLatch.countDown();
-                        }
-                )
-        );
+    private static void setupShutdownHook(Vertx vertx, AppContext ctx) {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                ctx.closeAllResources(vertx).await(10, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                throw new RuntimeException("Unable to close all resources");
+            }
+        }));
     }
 
-    private static void deployServer(
+    private static Future<String> deployServer(
             Vertx vertx,
             FilesDAO filesDAO,
             S3PresignedUrlGenerator s3PresignedUrlGenerator,
-            Pool sqlPool,
-            S3Presigner s3Presigner,
-            CountDownLatch shutdownLatch,
             JsonObject config
     ) {
-        vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
-                .onSuccess(id -> log.info("Verticle deployed, id: {}", id))
-                .onFailure(e -> {
-                    log.error("Failed to deploy verticle", e);
-                    closePgPool(sqlPool);
-                    closeS3Presigner(s3Presigner);
-                    closeVertx(vertx);
-                    shutdownLatch.countDown();
-                });
+        return vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
+                .onSuccess(id -> log.info("Verticle deployed, id: {}", id));
     }
 
     private static S3Presigner createS3Presigner(JsonObject config) {
@@ -143,42 +127,6 @@ public class MetadataMain {
                 )
                 .region(Region.of(config.getString("s3.region", "us-east-1")))
                 .build();
-    }
-
-    private static void closePgPool(Pool sqlPool) {
-        log.info("Closing SQLPool...");
-        try {
-            sqlPool.close()
-                    .toCompletionStage()
-                    .toCompletableFuture()
-                    .get(5, TimeUnit.SECONDS);
-            log.info("SQLPool closed");
-        } catch (Exception e) {
-            log.error("Error closing SQLPool", e);
-        }
-    }
-
-    private static void closeS3Presigner(S3Presigner s3Presigner) {
-        log.info("Closing S3Presigner...");
-        try {
-            s3Presigner.close();
-            log.info("S3Presigner is closed");
-        } catch (Exception e) {
-            log.error("Error closing S3Presigner", e);
-        }
-    }
-
-    private static void closeVertx(Vertx vertx) {
-        log.info("Closing Vertx...");
-        try {
-            vertx.close()
-                    .toCompletionStage()
-                    .toCompletableFuture()
-                    .get(10, TimeUnit.SECONDS);
-            log.info("Vertx is closed");
-        } catch (Exception e) {
-            log.error("Error closing Vertx", e);
-        }
     }
 
     private static void configureLogging() {
