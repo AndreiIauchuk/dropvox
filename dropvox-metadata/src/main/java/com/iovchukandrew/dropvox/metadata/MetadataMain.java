@@ -115,7 +115,7 @@ public class MetadataMain {
             JsonObject config
     ) {
         return vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
-                .onSuccess(id -> log.info("Verticle deployed, id: {}", id));
+                .onSuccess(id -> log.info("Verticle deployed [id:{}]", id));
     }
 
     private static S3Presigner createS3Presigner(JsonObject config) {

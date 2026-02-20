@@ -15,7 +15,7 @@ public class GatewayMain {
     private static void startServer() {
         Vertx vertx = Vertx.vertx();
         vertx.deployVerticle(new Server())
-                .onSuccess(id -> log.info("Verticle deployed, id: {}", id))
+                .onSuccess(id -> log.info("Verticle deployed [id:{}]", id))
                 .onFailure(Throwable::printStackTrace);
     }
 }

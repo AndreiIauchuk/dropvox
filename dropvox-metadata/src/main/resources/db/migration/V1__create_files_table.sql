@@ -1,7 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS metadata;
 
 CREATE TABLE IF NOT EXISTS metadata.files (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     size BIGINT NOT NULL,
     content_type VARCHAR(255),
