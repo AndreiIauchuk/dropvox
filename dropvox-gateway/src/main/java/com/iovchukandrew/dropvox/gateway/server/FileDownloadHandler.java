@@ -1,9 +1,9 @@
 package com.iovchukandrew.dropvox.gateway.server;
 
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.RoutingContext;
 import com.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
 import com.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.RoutingContext;
 
 /**
  * Handles GET /files/:id requests.
@@ -38,7 +38,7 @@ public class FileDownloadHandler {
         authServiceClient.validateToken("token")
                 .compose(userId -> metadataServiceClient.fetchFileMetadata(fileId, userId))
                 .onSuccess(metadata -> sendSuccessResponse(ctx, metadata))
-                .onFailure(error -> handleError(ctx, error));
+                .onFailure(e -> handleError(ctx, e));
     }
 
     /**

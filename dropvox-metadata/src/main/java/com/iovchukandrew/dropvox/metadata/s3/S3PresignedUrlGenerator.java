@@ -12,21 +12,34 @@ import java.time.Duration;
 public class S3PresignedUrlGenerator {
     private static final Logger log = LoggerFactory.getLogger(S3PresignedUrlGenerator.class);
 
-    private final S3Presigner s3Presigner;
-    private final String bucketName;
-    private final Duration expiration;
+    private static final int DEFAULT_DURATION_MINS = 5;
 
-    public S3PresignedUrlGenerator(S3Presigner s3Presigner, String bucketName, Duration expiration) {
+    private final S3Presigner s3Presigner;
+
+    public S3PresignedUrlGenerator(S3Presigner s3Presigner) {
         this.s3Presigner = s3Presigner;
-        this.bucketName = bucketName;
-        this.expiration = expiration;
     }
 
-    public String generateGetUrl(String s3Key) {
+    public String generateGetUrl(String bucket, String s3Key, Duration expiration) {
         log.info("Generating PresignedUrl");
-        return "mocked PresignedUrl by " + s3Key;
+        return "mocked PresignedUrl by bucket [ " + bucket + " ] and key [" + s3Key + "]";
         /*GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
+                .bucket(bucket)
+                .key(s3Key)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(expiration)
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        return s3Presigner.presignGetObject(presignRequest).url().toString();*/
+    }
+
+    public String generateGetUrl(String bucket, String s3Key) {
+        return generateGetUrl(bucket, s3Key, Duration.ofMinutes(DEFAULT_DURATION_MINS));
+        /*GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucket)
                 .key(s3Key)
                 .build();
 

@@ -21,6 +21,10 @@
         <assertj.version>3.27.7</assertj.version>
         <amazon.awssdk.version>2.41.29</amazon.awssdk.version>
         <logback.version>1.5.31</logback.version>
+        <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
+        <flyway.version>12.0.1</flyway.version>
+        <postgresql-driver.version>42.7.10</postgresql-driver.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
 
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
@@ -72,6 +76,18 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- PostgreSQL -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql-driver.version}</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -94,6 +110,7 @@
                 <version>${vertx.version}</version>
                 <scope>compile</scope>
             </dependency>
+
             <!-- S3 MinIO -->
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
@@ -102,7 +119,43 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${maven-shade-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>shade</goal>
+                            </goals>
+                            <configuration>
+                                <createDependencyReducedPom>false</createDependencyReducedPom>
+                                <finalName>${project.artifactId}</finalName>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

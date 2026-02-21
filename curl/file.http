@@ -1,3 +1,0 @@
-GET localhost:8082/files/412
-Accept: application/json
-X-User-Id: dummyUser

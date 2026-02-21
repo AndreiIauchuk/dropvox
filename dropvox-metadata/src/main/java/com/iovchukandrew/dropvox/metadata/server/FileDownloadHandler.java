@@ -1,24 +1,26 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
-import io.vertx.core.Future;
+import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
+import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import com.iovchukandrew.dropvox.metadata.db.MetadataDAO;
-import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
+import software.amazon.awssdk.http.HttpStatusCode;
+
+import java.util.UUID;
 
 /**
  * Handles GET /files/:id requests.
  */
 public class FileDownloadHandler {
 
-    private final MetadataDAO metadataDAO;
+    private final FilesDAO filesDAO;
     private final S3PresignedUrlGenerator s3PresignedUrlGenerator;
 
     public FileDownloadHandler(
-            MetadataDAO metadataDAO,
+            FilesDAO filesDAO,
             S3PresignedUrlGenerator s3PresignedUrlGenerator
     ) {
-        this.metadataDAO = metadataDAO;
+        this.filesDAO = filesDAO;
         this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
     }
 
@@ -29,30 +31,52 @@ public class FileDownloadHandler {
         String fileId = ctx.pathParam("id");
         String userId = ctx.request().getHeader("X-User-Id");
 
-        if (userId == null || userId.isEmpty()) {
-            ctx.response().setStatusCode(400).end("Missing X-User-Id header");
+        UUID userUuid;
+        try {
+            validateUserId(userId);
+            userUuid = UUID.fromString(userId);
+        } catch (Exception e) {
+            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid userId. Cause: " + e.getMessage());
             return;
         }
 
-        metadataDAO.findFileByIdAndUser(fileId, userId)
-                .compose(metadata -> {
-                    String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(metadata.getString("s3Key"));
+        UUID fileUuid;
+        try {
+            fileUuid = UUID.fromString(fileId);
+        } catch (IllegalArgumentException e) {
+            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid fileId. Cause: " + e.getMessage());
+            return;
+        }
+
+        filesDAO.findFileByIdAndOwner(fileUuid, userUuid)
+                .map(metadata -> {
+                    String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(
+                            metadata.getString("bucket"),
+                            metadata.getString("s3Key")
+                    );
                     metadata.put("downloadUrl", presignedUrl);
-                    return Future.succeededFuture(metadata);
+                    return metadata;
                 })
                 .onSuccess(metadata -> sendResponse(ctx, metadata))
-                .onFailure(err -> handleError(ctx, err));
+                .onFailure(e -> handleError(ctx, e));
+    }
+
+    private void validateUserId(String userId) {
+        if (userId == null || userId.isEmpty()) {
+            throw new IllegalArgumentException("Missing X-User-Id header");
+        }
     }
 
     private void sendResponse(RoutingContext ctx, JsonObject metadata) {
         ctx.response()
-                .setStatusCode(200)
+                .setStatusCode(HttpStatusCode.OK)
                 .putHeader("Content-Type", "application/json")
                 .end(metadata.toBuffer());
     }
 
-    private void handleError(RoutingContext ctx, Throwable err) {
-        //Log the error appropriately
-        ctx.response().setStatusCode(500).end(err.getMessage());
+    private void handleError(RoutingContext ctx, Throwable e) {
+        ctx.response()
+                .setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR)
+                .end(e.getMessage());
     }
 }
