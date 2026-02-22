@@ -27,8 +27,10 @@ public class Server extends VerticleBase {
     public Future<HttpServer> start() {
         Router router = Router.router(vertx);
 
-        FileDownloadHandler handler = new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator);
-        router.get("/files/:id").handler(handler::handle);
+        router.get("/files/:id")
+                .handler(new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator));
+        router.put("/files/:id")
+                .handler(new FileUploadHandler(filesDAO, s3PresignedUrlGenerator));
 
         int port = config.getInteger("server.port");
         return vertx.createHttpServer()
