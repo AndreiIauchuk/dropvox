@@ -29,7 +29,7 @@ public class Server extends VerticleBase {
 
         router.get("/files/:id")
                 .handler(new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator));
-        router.put("/files/:id")
+        router.post("/files/:id")
                 .handler(new FileUploadHandler(filesDAO, s3PresignedUrlGenerator));
 
         int port = config.getInteger("server.port");

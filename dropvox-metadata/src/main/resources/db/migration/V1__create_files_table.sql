@@ -1,11 +1,14 @@
 CREATE SCHEMA IF NOT EXISTS metadata;
 
+CREATE TYPE UPLOAD_STATUS AS ENUM ('PENDING', 'UPLOADED');
+
 CREATE TABLE IF NOT EXISTS metadata.files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     size BIGINT NOT NULL,
     content_type VARCHAR(255),
     owner_id UUID NOT NULL,
+    status UPLOAD_STATUS NOT NULL,
     bucket VARCHAR(63) NOT NULL,
     s3_key VARCHAR(512) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

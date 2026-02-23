@@ -6,6 +6,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import org.slf4j.MDC;
 import software.amazon.awssdk.http.HttpStatusCode;
 
 import java.util.UUID;
@@ -22,6 +23,16 @@ abstract class FileHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
+        String trackId = UUID.randomUUID().toString(); //TODO From HTTP header?
+        MDC.put("trackId", trackId);
+        try {
+            handle_(ctx);
+        } finally {
+            MDC.clear();
+        }
+    }
+
+    private void handle_(RoutingContext ctx) {
         String fileId = ctx.pathParam("id");
         String userId = ctx.request().getHeader("X-User-Id");
 
