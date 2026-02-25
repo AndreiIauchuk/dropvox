@@ -1,7 +1,6 @@
 package com.iovchukandrew.dropvox.metadata.db;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
@@ -12,8 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.UUID;
 
-//TODO Rename to FilesDAO? looks like it will only quirying FIlES table
-
 /**
  * Data access object for file metadata.
  */
@@ -22,7 +19,7 @@ public class FilesDAO {
 
     private final Pool pool;
 
-    public FilesDAO(Vertx vertx, Pool pool) {
+    public FilesDAO(Pool pool) {
         this.pool = pool;
     }
 
@@ -39,7 +36,6 @@ public class FilesDAO {
         String sql = "SELECT id, name, size, content_type, owner_id, bucket, s3_key, created_at, updated_at " +
                 "FROM files WHERE id = $1 AND owner_id = $2 AND status = 'UPLOADED'";
 
-        //TODO HANDLE SEVERAL RETURNS HERE (Expeption?)
         return pool.preparedQuery(sql)
                 .execute(Tuple.of(fileId, ownerId))
                 .compose(rows -> {
@@ -47,12 +43,28 @@ public class FilesDAO {
                         return Future.failedFuture(
                                 String.format("File not found by {fileId=%s, ownerId=%s}", fileId, ownerId));
                     }
+                    if (rows.size() > 1) {
+                        return Future.failedFuture(
+                                String.format("Expected exactly 1 file by {fileId=%s, ownerId=%s}, but got %s",
+                                        fileId, ownerId, rows.size()));
+                    }
                     Row row = rows.iterator().next();
                     return Future.succeededFuture(mapRowToJson(row));
                 })
-                .onFailure(e -> log.error("Unable to lookup a file by {fileId={}, ownerId={}}", fileId, ownerId, e));
+                .onFailure(e -> log.error("Unable to find a file by {fileId={}, ownerId={}}", fileId, ownerId, e));
     }
 
+    /**
+     * Creates file metadata in {@code PENDING} status before the actual object upload is confirmed.
+     *
+     * @param filename    original file name
+     * @param size        file size in bytes
+     * @param contentType MIME type of the file
+     * @param ownerId     owner identifier
+     * @param bucket      storage bucket name
+     * @param s3Key       object key in storage
+     * @return Future containing created file metadata
+     */
     public Future<JsonObject> createPendingFile(
             String filename, long size, String contentType, UUID ownerId, String bucket, String s3Key
     ) {
@@ -72,9 +84,16 @@ public class FilesDAO {
                     }
                     return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 })
-                .onFailure(e -> log.error("Unable to create pending file metadata", e));
+                .onFailure(e -> log.error("Unable to create a pending file metadata", e));
     }
 
+    /**
+     * Confirms upload for an existing pending file and transitions its status to {@code UPLOADED}.
+     *
+     * @param fileId  file identifier
+     * @param ownerId file owner identifier
+     * @return Future containing updated file metadata
+     */
     public Future<JsonObject> confirmFileUpload(UUID fileId, UUID ownerId) {
         log.info("Updating file metadata of uploaded file by {fileId={}, ownerId={}}",
                 fileId, ownerId);
@@ -88,11 +107,11 @@ public class FilesDAO {
                 .compose(rows -> {
                     if (rows.size() == 0) {
                         return Future.failedFuture(
-                                String.format("No pending file metadata found by {fileId=%s, ownerId=%s}", fileId, ownerId));
+                                String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId));
                     }
                     return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 })
-                .onFailure(e -> log.error("Unable to update file metadata of uploaded file", e));
+                .onFailure(e -> log.error("Unable to update a file metadata of uploaded file", e));
     }
 
     private JsonObject mapRowToJson(Row row) {

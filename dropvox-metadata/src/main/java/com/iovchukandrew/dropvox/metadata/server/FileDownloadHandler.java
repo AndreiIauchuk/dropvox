@@ -30,27 +30,11 @@ public class FileDownloadHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
-        String fileId = ctx.pathParam("id");
-        String userId = ctx.request().getHeader(HttpHeader.USER_ID);
+        UUID userUuid = UuidParser.parseHeader(ctx, HttpHeader.USER_ID);
+        if (userUuid == null) return;
 
-        UUID userUuid;
-        try {
-            validateUserId(userId);
-            userUuid = UUID.fromString(userId);
-        } catch (Exception e) {
-            log.error("", e);
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid userId header");
-            return;
-        }
-
-        UUID fileUuid;
-        try {
-            fileUuid = UUID.fromString(fileId);
-        } catch (IllegalArgumentException e) {
-            log.error("", e);
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid fileId header");
-            return;
-        }
+        UUID fileUuid = UuidParser.parsePathParam(ctx, "fileId");
+        if (fileUuid == null) return;
 
         filesDAO.findFileByIdAndOwner(fileUuid, userUuid)
                 .map(metadata -> {

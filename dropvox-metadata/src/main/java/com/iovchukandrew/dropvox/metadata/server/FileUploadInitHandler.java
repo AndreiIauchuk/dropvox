@@ -12,7 +12,9 @@ import software.amazon.awssdk.http.HttpStatusCode;
 
 import java.util.UUID;
 
-//TODO Refactor?
+/**
+ * Handles POST /files/init requests.
+ */
 public class FileUploadInitHandler implements Handler<RoutingContext> {
     private static final Logger log = LoggerFactory.getLogger(FileUploadInitHandler.class);
 
@@ -26,20 +28,10 @@ public class FileUploadInitHandler implements Handler<RoutingContext> {
         this.bucketName = bucketName;
     }
 
+    @Override
     public void handle(RoutingContext ctx) {
-        String ownerIdHeader = ctx.request().getHeader(HttpHeader.USER_ID);
-        if (ownerIdHeader == null) {
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Missing X-User-Id header");
-            return;
-        }
-
-        UUID ownerId;
-        try {
-            ownerId = UUID.fromString(ownerIdHeader);
-        } catch (IllegalArgumentException e) {
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid userId format");
-            return;
-        }
+        UUID userUuid = UuidParser.parseHeader(ctx, HttpHeader.USER_ID);
+        if (userUuid == null) return;
 
         JsonObject body = ctx.body().asJsonObject();
         if (body == null) {
@@ -56,10 +48,10 @@ public class FileUploadInitHandler implements Handler<RoutingContext> {
             return;
         }
 
-        UUID fileId = UUID.randomUUID();
-        String s3Key = "users/" + ownerId + "/file/" + fileId + "/" + filename + "." + contentType;
+        UUID fileUuid = UUID.randomUUID();
+        String s3Key = bucketName + "/users/" + userUuid + "/file/" + fileUuid + "/" + filename + "." + contentType;
 
-        filesDAO.createPendingFile(filename, size, contentType, ownerId, bucketName, s3Key)
+        filesDAO.createPendingFile(filename, size, contentType, userUuid, bucketName, s3Key)
                 .compose(metadata -> {
                     String uploadUrl = urlGenerator.generatePutUrl(bucketName, s3Key);
                     metadata.put("uploadUrl", uploadUrl);

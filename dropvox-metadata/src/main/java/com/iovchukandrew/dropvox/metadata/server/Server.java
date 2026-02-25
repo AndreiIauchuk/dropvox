@@ -31,7 +31,7 @@ public class Server extends VerticleBase {
 
         String bucketName = config.getString("s3.bucket");
 
-        router.get("/files/:id")
+        router.get("/files/:fileId")
                 .handler(new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator));
         router.post("/files/init")
                 .handler(new FileUploadInitHandler(filesDAO, s3PresignedUrlGenerator, bucketName));

@@ -10,7 +10,9 @@ import software.amazon.awssdk.http.HttpStatusCode;
 
 import java.util.UUID;
 
-//TODO Refactor?
+/**
+ * Handles POST /files/complete/:fileId requests.
+ */
 public class FileUploadCompleteHandler implements Handler<RoutingContext> {
     private static final Logger log = LoggerFactory.getLogger(FileUploadCompleteHandler.class);
 
@@ -22,42 +24,18 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
-        String ownerIdHeader = ctx.request().getHeader("X-User-Id");
-        if (ownerIdHeader == null) {
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Missing X-User-Id header");
-            return;
-        }
+        UUID userUuid = UuidParser.parseHeader(ctx, HttpHeader.USER_ID);
+        if (userUuid == null) return;
 
-        UUID ownerId;
-        try {
-            ownerId = UUID.fromString(ownerIdHeader);
-        } catch (IllegalArgumentException e) {
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid user ID format");
-            return;
-        }
+        UUID fileUuid = UuidParser.parsePathParam(ctx, "fileId");
+        if (fileUuid == null) return;
 
-        String fileIdParam = ctx.pathParam("fileId");
-        if (fileIdParam == null) {
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Missing fileId in path");
-            return;
-        }
-
-        UUID fileId;
-        try {
-            fileId = UUID.fromString(fileIdParam);
-        } catch (IllegalArgumentException e) {
-            ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Invalid file ID format");
-            return;
-        }
-
-        filesDAO.confirmFileUpload(fileId, ownerId)
+        filesDAO.confirmFileUpload(fileUuid, userUuid)
                 .compose(Future::succeededFuture)
-                .onSuccess(metadata -> {
-                    ctx.response()
-                            .setStatusCode(HttpStatusCode.OK)
-                            .putHeader("Content-Type", "application/json")
-                            .end(metadata.toBuffer());
-                })
+                .onSuccess(metadata -> ctx.response()
+                        .setStatusCode(HttpStatusCode.OK)
+                        .putHeader("Content-Type", "application/json")
+                        .end(metadata.toBuffer()))
                 .onFailure(err -> {
                     log.error("Failed to complete upload", err);
                     ctx.response().setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR).end(err.getMessage());

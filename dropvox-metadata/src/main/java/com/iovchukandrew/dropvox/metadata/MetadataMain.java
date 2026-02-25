@@ -92,7 +92,7 @@ public class MetadataMain {
         var sqlPool = PgPoolCreator.create(vertx, config);
         var s3Presigner = createS3Presigner(config);
         var s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
-        var metadataDAO = new FilesDAO(vertx, sqlPool);
+        var metadataDAO = new FilesDAO(sqlPool);
 
         return deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, config)
                 .map(id -> new AppContext(sqlPool, s3Presigner));
@@ -119,12 +119,13 @@ public class MetadataMain {
     }
 
     private static S3Presigner createS3Presigner(JsonObject config) {
+        String presignEndpoint = config.getString("s3.publicEndpoint", config.getString("s3.endpoint")); //FIXME Temporary solution
+
         return S3Presigner.builder()
-                .endpointOverride(URI.create(config.getString("s3.endpoint")))
+                .endpointOverride(URI.create(presignEndpoint))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(
-                                config.getString("s3.accessKey"), config.getString("s3.secretKey")))
-                )
+                                config.getString("s3.accessKey"), config.getString("s3.secretKey"))))
                 .region(Region.of(config.getString("s3.region", "us-east-1")))
                 .build();
     }

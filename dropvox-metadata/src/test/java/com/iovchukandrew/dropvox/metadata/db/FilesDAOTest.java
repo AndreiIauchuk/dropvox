@@ -35,7 +35,7 @@ class FilesDAOTest {
 
         vertx = Vertx.vertx();
         pool = PgPoolCreator.create(vertx, config);
-        filesDAO = new FilesDAO(vertx, pool);
+        filesDAO = new FilesDAO(pool);
     }
 
     @BeforeEach
@@ -60,8 +60,8 @@ class FilesDAOTest {
         UUID ownerId = UUID.randomUUID();
 
         pool.preparedQuery("""
-                        INSERT INTO files (id, name, size, content_type, owner_id, bucket, s3_key)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        INSERT INTO files (id, name, size, content_type, owner_id, status, bucket, s3_key)
+                        VALUES ($1, $2, $3, $4, $5, 'UPLOADED', $6, $7)
                         """)
                 .execute(Tuple.of(
                         fileId,
@@ -82,7 +82,7 @@ class FilesDAOTest {
         assertThat(file.getString("contentType")).isEqualTo("audio/wav");
         assertThat(file.getString("bucket")).isEqualTo("dropvox-files");
         assertThat(file.getString("s3Key")).isEqualTo("users/" + ownerId + "/voice.wav");
-        assertThat(file.getString("id")).isEqualTo(fileId.toString());
+        assertThat(file.getString("fileId")).isEqualTo(fileId.toString());
         assertThat(file.getString("ownerId")).isEqualTo(ownerId.toString());
         assertThat(file.getString("uploadedAt")).isNotBlank();
         assertThat(file.getString("lastModifiedAt")).isNotBlank();
@@ -96,6 +96,79 @@ class FilesDAOTest {
         assertThatThrownBy(() -> filesDAO.findFileByIdAndOwner(fileId, ownerId)
                 .await(10, TimeUnit.SECONDS))
                 .hasMessage("File not found by {fileId=%s, ownerId=%s}".formatted(fileId, ownerId));
+    }
+
+    @Test
+    void shouldCreatePendingFileMetadata() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+
+        JsonObject file = filesDAO.createPendingFile(
+                        "voice.wav",
+                        12345L,
+                        "audio/wav",
+                        ownerId,
+                        "dropvox-files",
+                        "users/" + ownerId + "/voice.wav"
+                )
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(file.getString("name")).isEqualTo("voice.wav");
+        assertThat(file.getLong("size")).isEqualTo(12345L);
+        assertThat(file.getString("contentType")).isEqualTo("audio/wav");
+        assertThat(file.getString("bucket")).isEqualTo("dropvox-files");
+        assertThat(file.getString("s3Key")).isEqualTo("users/" + ownerId + "/voice.wav");
+        assertThat(file.getString("fileId")).isNotBlank();
+        assertThat(file.getString("ownerId")).isEqualTo(ownerId.toString());
+        assertThat(file.getString("uploadedAt")).isNotBlank();
+        assertThat(file.getString("lastModifiedAt")).isNotBlank();
+
+        UUID fileId = UUID.fromString(file.getString("fileId"));
+        var rows = pool.preparedQuery("SELECT status FROM files WHERE id = $1 AND owner_id = $2")
+                .execute(Tuple.of(fileId, ownerId))
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows.iterator().next().getString("status")).isEqualTo("PENDING");
+    }
+
+    @Test
+    void shouldConfirmPendingFileUpload() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        JsonObject pendingFile = filesDAO.createPendingFile(
+                        "voice.wav",
+                        12345L,
+                        "audio/wav",
+                        ownerId,
+                        "dropvox-files",
+                        "users/" + ownerId + "/voice.wav"
+                )
+                .await(10, TimeUnit.SECONDS);
+        UUID fileId = UUID.fromString(pendingFile.getString("fileId"));
+
+        JsonObject confirmedFile = filesDAO.confirmFileUpload(fileId, ownerId)
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(confirmedFile.getString("fileId")).isEqualTo(fileId.toString());
+        assertThat(confirmedFile.getString("ownerId")).isEqualTo(ownerId.toString());
+        assertThat(confirmedFile.getString("uploadedAt")).isNotBlank();
+        assertThat(confirmedFile.getString("lastModifiedAt")).isNotBlank();
+
+        var rows = pool.preparedQuery("SELECT status FROM files WHERE id = $1 AND owner_id = $2")
+                .execute(Tuple.of(fileId, ownerId))
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows.iterator().next().getString("status")).isEqualTo("UPLOADED");
+    }
+
+    @Test
+    void shouldFailToConfirmFileUploadWhenPendingFileIsNotFound() {
+        UUID fileId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> filesDAO.confirmFileUpload(fileId, ownerId)
+                .await(10, TimeUnit.SECONDS))
+                .hasMessage("No pending file metadata was found by {fileId=%s, ownerId=%s}".formatted(fileId, ownerId));
     }
 
     private static JsonObject createDbConfig() {
