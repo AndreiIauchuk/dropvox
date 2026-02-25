@@ -7,6 +7,7 @@ import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.handler.BodyHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,11 +27,16 @@ public class Server extends VerticleBase {
     @Override
     public Future<HttpServer> start() {
         Router router = Router.router(vertx);
+        router.route().handler(BodyHandler.create());
+
+        String bucketName = config.getString("s3.bucket");
 
         router.get("/files/:id")
                 .handler(new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator));
-        router.post("/files/:id")
-                .handler(new FileUploadHandler(filesDAO, s3PresignedUrlGenerator));
+        router.post("/files/init")
+                .handler(new FileUploadInitHandler(filesDAO, s3PresignedUrlGenerator, bucketName));
+        router.post("/files/complete/:fileId")
+                .handler(new FileUploadCompleteHandler(filesDAO));
 
         int port = config.getInteger("server.port");
         return vertx.createHttpServer()

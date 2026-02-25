@@ -9,7 +9,6 @@ import io.vertx.sqlclient.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,10 +36,9 @@ public class FilesDAO {
     public Future<JsonObject> findFileByIdAndOwner(UUID fileId, UUID ownerId) {
         log.info("Retrieving file metadata by {fileId={}, ownerId={}}", fileId, ownerId);
 
-        String sql = "SELECT name, size, content_type, bucket, s3_key, created_at, updated_at " +
-                "FROM files WHERE id = $1 AND owner_id = $2";
+        String sql = "SELECT id, name, size, content_type, owner_id, bucket, s3_key, created_at, updated_at " +
+                "FROM files WHERE id = $1 AND owner_id = $2 AND status = 'UPLOADED'";
 
-        //TODO HANDLE PENDING STATUS
         //TODO HANDLE SEVERAL RETURNS HERE (Expeption?)
         return pool.preparedQuery(sql)
                 .execute(Tuple.of(fileId, ownerId))
@@ -63,7 +61,7 @@ public class FilesDAO {
 
         String sql = "INSERT INTO files (id, name, size, content_type, owner_id, status, bucket, s3_key) " +
                 "VALUES ($1, $2, $3, $4, $5, 'PENDING', $6, $7) " +
-                "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, status";
+                "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, created_at, updated_at";
 
         UUID fileId = UUID.randomUUID();
         return pool.preparedQuery(sql)
@@ -98,18 +96,19 @@ public class FilesDAO {
     }
 
     private JsonObject mapRowToJson(Row row) {
-        return new JsonObject()
+        var json = new JsonObject()
                 .put("fileId", row.getUUID("id"))
                 .put("name", row.getString("name"))
                 .put("size", row.getLong("size"))
                 .put("contentType", row.getString("content_type"))
                 .put("ownerId", row.getUUID("owner_id"))
-                .put("status", row.getString("status"))
                 .put("bucket", row.getString("bucket"))
                 .put("s3Key", row.getString("s3_key"))
-                .put("uploadedAt", row.getLocalDateTime("created_at").toString())
-                .put("lastModifiedAt",
-                        Optional.ofNullable(row.getLocalDateTime("updated_at"))
-                                .map(LocalDateTime::toString));
+                .put("uploadedAt", row.getLocalDateTime("created_at").toString());
+
+        Optional.ofNullable(row.getLocalDateTime("updated_at"))
+                .ifPresent(ldt -> json.put("lastModifiedAt", ldt.toString()));
+
+        return json;
     }
 }

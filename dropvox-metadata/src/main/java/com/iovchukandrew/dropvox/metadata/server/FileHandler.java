@@ -9,6 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.slf4j.MDC;
 import software.amazon.awssdk.http.HttpStatusCode;
 
+import java.util.Optional;
 import java.util.UUID;
 
 abstract class FileHandler implements Handler<RoutingContext> {
@@ -21,10 +22,14 @@ abstract class FileHandler implements Handler<RoutingContext> {
         this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
     }
 
+    //TODO Find a way to add it on every handler/router
     @Override
     public void handle(RoutingContext ctx) {
-        String trackId = UUID.randomUUID().toString(); //TODO From HTTP header?
-        MDC.put("trackId", trackId);
+        String trackId =
+                Optional.ofNullable(ctx.request().getHeader(HttpHeader.TRACE_ID))
+                        .orElse(UUID.randomUUID().toString());
+
+        MDC.put("traceId", trackId);
         try {
             handle_(ctx);
         } finally {
@@ -34,7 +39,7 @@ abstract class FileHandler implements Handler<RoutingContext> {
 
     private void handle_(RoutingContext ctx) {
         String fileId = ctx.pathParam("id");
-        String userId = ctx.request().getHeader("X-User-Id");
+        String userId = ctx.request().getHeader(HttpHeader.USER_ID);
 
         UUID userUuid;
         try {

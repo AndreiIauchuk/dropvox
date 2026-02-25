@@ -1,18 +1,28 @@
 ### Docker
+POST localhost:8082/files/init
+Accept: application/json
+Content-Type: application/json
+X-User-Id: 3b069db6-b46a-4766-96d8-9bee5c5a32be
+
+{
+  "filename": "Engine",
+  "contentType": "ini",
+  "size": 11000
+}
+###
 PUT localhost:8082/files/a78b285b-ed1f-4790-afe9-0d53f6eecacc
 Accept: application/json
 X-User-Id: 3b069db6-b46a-4766-96d8-9bee5c5a32be
-
 ###
 GET localhost:8082/files/a78b285b-ed1f-4790-afe9-0d53f6eecacc
 Accept: application/json
 X-User-Id: 3b069db6-b46a-4766-96d8-9bee5c5a32be
 
+
 ### Local
 PUT localhost:9082/files/a78b285b-ed1f-4790-afe9-0d53f6eecacc
 Accept: application/json
 X-User-Id: 3b069db6-b46a-4766-96d8-9bee5c5a32be
-
 ###
 GET localhost:9082/files/a78b285b-ed1f-4790-afe9-0d53f6eecacc
 Accept: application/json
