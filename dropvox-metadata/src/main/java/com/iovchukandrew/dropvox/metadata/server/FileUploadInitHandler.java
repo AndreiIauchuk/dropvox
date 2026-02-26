@@ -49,7 +49,7 @@ public class FileUploadInitHandler implements Handler<RoutingContext> {
         }
 
         UUID fileUuid = UUID.randomUUID();
-        String s3Key = bucketName + "/users/" + userUuid + "/file/" + fileUuid + "/" + filename + "." + contentType;
+        String s3Key = buildS3Key(userUuid, fileUuid, filename);
 
         filesDAO.createPendingFile(filename, size, contentType, userUuid, bucketName, s3Key)
                 .compose(metadata -> {
@@ -64,8 +64,20 @@ public class FileUploadInitHandler implements Handler<RoutingContext> {
                             .end(metadata.toBuffer());
                 })
                 .onFailure(err -> {
-                    log.error("Failed to initialize upload", err);
-                    ctx.response().setStatusCode(500).end(err.getMessage());
+                    log.error("Failed to initialize an upload", err);
+                    ctx.response().setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR).end(err.getMessage());
                 });
+    }
+
+    private String buildS3Key(UUID userUuid, UUID fileUuid, String filename) {
+        return "users/" + userUuid + "/files/" + fileUuid + "/" + sanitizeFilename(filename);
+    }
+
+    private String sanitizeFilename(String filename) {
+        String sanitized = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        if (sanitized.isBlank()) {
+            return "file";
+        }
+        return sanitized;
     }
 }

@@ -24,6 +24,14 @@ public class S3PresignedUrlGenerator {
         this.s3Presigner = s3Presigner;
     }
 
+    /**
+     * Generates a presigned GET URL for downloading an object.
+     *
+     * @param bucket     S3 bucket name
+     * @param s3Key      object key in the bucket
+     * @param expiration URL validity duration
+     * @return presigned GET URL
+     */
     public String generateGetUrl(String bucket, String s3Key, Duration expiration) {
         log.info("Generating presigned GET URL for {bucket={}, expiration={}}", bucket, expiration);
 
@@ -46,6 +54,14 @@ public class S3PresignedUrlGenerator {
         return generateGetUrl(bucket, s3Key, Duration.ofMinutes(DEFAULT_DURATION_MINS));
     }
 
+    /**
+     * Generates a presigned PUT URL for uploading an object.
+     *
+     * @param bucket     S3 bucket name
+     * @param s3Key      object key in the bucket
+     * @param expiration URL validity duration
+     * @return presigned PUT URL
+     */
     public String generatePutUrl(String bucket, String s3Key, Duration expiration) {
         log.info("Generating presigned PUT URL for {bucket={}, expiration={}}", bucket, expiration);
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
