@@ -1,15 +1,17 @@
-name: Run tests on Push
+name: Build and Test on Push
 
 on:
   push:
     branches:
       - "**"
+  pull_request:
+    branches: [ master ]
 
 permissions:
   contents: read
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,6 +24,9 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      - name: Compile
+        run: mvn -B -DskipTests compile
 
       - name: Run tests
         run: mvn -B test
