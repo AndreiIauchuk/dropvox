@@ -23,7 +23,7 @@ public class FlywayRunner {
                 .schemas(config.getString("db.scheme"))
                 .load();
         var result = flyway.migrate();
-        log.info("Flyway migration complete with the result: {}", result);
+        log.info("Flyway migration complete with the status: {{}}", result.success);
         return result;
     }
 }

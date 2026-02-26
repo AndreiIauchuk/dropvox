@@ -4,26 +4,18 @@ import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.db.FlywayRunner;
 import com.iovchukandrew.dropvox.metadata.db.PgPoolCreator;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
+import com.iovchukandrew.dropvox.metadata.s3.S3PresignerFactory;
 import com.iovchukandrew.dropvox.metadata.server.Server;
-import io.vertx.config.ConfigRetriever;
-import io.vertx.config.ConfigRetrieverOptions;
-import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class MetadataMain {
     private static final Logger log = LoggerFactory.getLogger(MetadataMain.class);
@@ -34,14 +26,11 @@ public class MetadataMain {
 
         Vertx vertx = Vertx.vertx();
 
-        ConfigRetriever configRetriever = createConfigRetriever(vertx);
+        var configRetriever = ConfigRetrieverFactory.create(vertx);
 
         configRetriever.getConfig()
-                .compose(config -> {
-                    log.info("Configuration loaded successfully");
-                    parseEnvVars(config);
-                    return runFlywayMigration(vertx, config).map(r -> config);
-                })
+                .compose(MetadataMain::prepareConfig)
+                .compose(config -> runMigrations(vertx, config))
                 .compose(config -> startApplication(vertx, config))
                 .onSuccess(ctx -> setupShutdownHook(vertx, ctx))
                 .onFailure(e -> {
@@ -50,27 +39,13 @@ public class MetadataMain {
                 });
     }
 
-    private static ConfigRetriever createConfigRetriever(Vertx vertx) {
-        String propertiesFile = System.getenv("PROP_FILE");
-        if (propertiesFile == null) {
-            propertiesFile = "application.properties";
-        }
+    private static Future<JsonObject> prepareConfig(JsonObject config) {
+        parseEnvVars(config);
+        return Future.succeededFuture(config);
+    }
 
-        ConfigStoreOptions fileStore = new ConfigStoreOptions()
-                .setType("file")
-                .setFormat("properties")
-                .setConfig(new JsonObject().put("path", propertiesFile));
-
-        //env vars will overwrite properties from file
-        ConfigStoreOptions envStore = new ConfigStoreOptions()
-                .setType("env")
-                .setConfig(new JsonObject());
-
-        return ConfigRetriever.create(
-                vertx,
-                new ConfigRetrieverOptions()
-                        .addStore(fileStore)
-                        .addStore(envStore));
+    private static Future<JsonObject> runMigrations(Vertx vertx, JsonObject config) {
+        return runFlywayMigration(vertx, config).map(r -> config);
     }
 
     private static void parseEnvVars(JsonObject config) {
@@ -90,9 +65,9 @@ public class MetadataMain {
 
     private static Future<AppContext> startApplication(Vertx vertx, JsonObject config) {
         var sqlPool = PgPoolCreator.create(vertx, config);
-        var s3Presigner = createS3Presigner(config);
+        var s3Presigner = S3PresignerFactory.create(config);
         var s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
-        var metadataDAO = new FilesDAO(vertx, sqlPool);
+        var metadataDAO = new FilesDAO(sqlPool);
 
         return deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, config)
                 .map(id -> new AppContext(sqlPool, s3Presigner));
@@ -102,8 +77,8 @@ public class MetadataMain {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 ctx.closeAllResources(vertx).await(10, TimeUnit.SECONDS);
-            } catch (TimeoutException e) {
-                throw new RuntimeException("Unable to close all resources");
+            } catch (Exception e) {
+                log.error("Unable to close all resources during shutdown", e);
             }
         }));
     }
@@ -116,17 +91,6 @@ public class MetadataMain {
     ) {
         return vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
                 .onSuccess(id -> log.info("Verticle deployed [id:{}]", id));
-    }
-
-    private static S3Presigner createS3Presigner(JsonObject config) {
-        return S3Presigner.builder()
-                .endpointOverride(URI.create(config.getString("s3.endpoint")))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(
-                                config.getString("s3.accessKey"), config.getString("s3.secretKey")))
-                )
-                .region(Region.of(config.getString("s3.region", "us-east-1")))
-                .build();
     }
 
     private static void configureLogging() {
