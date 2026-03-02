@@ -1,10 +1,8 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
+import com.iovchukandrew.dropvox.metadata.ConfigRetrieverFactory;
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
-import io.vertx.config.ConfigRetriever;
-import io.vertx.config.ConfigRetrieverOptions;
-import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -23,7 +21,7 @@ public class DeployServerTest {
 
     @Test
     void shouldDeployServer(Vertx vertx, VertxTestContext testContext) {
-        var configRetriever = createConfigRetriever(vertx);
+        var configRetriever = ConfigRetrieverFactory.create(vertx);
         configRetriever.getConfig()
                 .onSuccess(config -> deployServer(vertx, testContext, config))
                 .onFailure(testContext::failNow);
@@ -38,19 +36,5 @@ public class DeployServerTest {
                         testContext.failNow(handler.cause());
                     }
                 });
-    }
-
-    private ConfigRetriever createConfigRetriever(Vertx vertx) {
-        ConfigStoreOptions fileStore = new ConfigStoreOptions()
-                .setType("file")
-                .setFormat("properties")
-                .setConfig(new JsonObject().put("path", "application.properties"));
-
-        ConfigStoreOptions envStore = new ConfigStoreOptions()
-                .setType("env")
-                .setConfig(new JsonObject().put("raw-data", true)); //env vars will overwrite properties from file
-
-        return ConfigRetriever.create(vertx,
-                new ConfigRetrieverOptions().addStore(fileStore).addStore(envStore));
     }
 }
