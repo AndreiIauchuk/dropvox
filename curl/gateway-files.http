@@ -1,0 +1,33 @@
+@dockerApi = http://localhost:8080
+@localApi = http://localhost:9080
+@api = {{dockerApi}}
+
+### 1) Init upload and capture fileId + uploadUrl
+POST {{api}}/files/init
+Accept: application/json
+Content-Type: application/json
+
+{
+  "filename": "Engine",
+  "contentType": "ini",
+  "size": 11000
+}
+> {%
+    client.global.set("fileId", response.body.fileId);
+    client.global.set("uploadUrl", response.body.uploadUrl);
+%}
+
+### 2) Upload content to MinIO using presigned URL (must be PUT)
+PUT {{uploadUrl}}
+Content-Type: application/octet-stream
+
+< ./Engine.ini
+
+### 3) Mark upload complete in metadata service
+POST {{api}}/files/complete/{{fileId}}
+Accept: application/json
+
+### 4) Verify metadata
+GET {{api}}/files/{{fileId}}
+Accept: application/json
+
