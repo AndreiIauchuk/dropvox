@@ -26,14 +26,14 @@ public class FileDownloadHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
-        String fileId = ctx.pathParam("fileId");
-
         //String authHeader = ctx.request().getHeader("Authorization");
         // if (authHeader == null || !authHeader.startsWith("Bearer ")) {
         // ctx.response().setStatusCode(401).end("Missing or invalid token");
         // return;
         // }
         // String token = authHeader.substring(7);
+
+        String fileId = ctx.pathParam("fileId");
 
         authServiceClient.validateToken("token")
                 .compose(userId -> metadataServiceClient.getFileMetadata(fileId, userId))

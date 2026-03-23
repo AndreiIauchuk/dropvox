@@ -25,6 +25,8 @@ public class FileUploadInitHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
+        //Auth here
+
         JsonObject body = ctx.body().asJsonObject();
         if (body == null) {
             ctx.response().setStatusCode(HttpStatusCode.BAD_REQUEST).end("Request body is missing or not JSON");

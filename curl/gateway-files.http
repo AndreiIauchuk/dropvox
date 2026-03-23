@@ -1,6 +1,7 @@
 @dockerApi = http://localhost:8080
 @localApi = http://localhost:9080
 @api = {{dockerApi}}
+@downloadUrl = {{downloadUrl}}
 
 ### 1) Init upload and capture fileId + uploadUrl
 POST {{api}}/files/init
@@ -30,4 +31,11 @@ Accept: application/json
 ### 4) Verify metadata
 GET {{api}}/files/{{fileId}}
 Accept: application/json
+
+> {%
+    client.global.set("downloadUrl", response.body.downloadUrl);
+%}
+
+### 5) Download uploaded file
+GET {{downloadUrl}}
 

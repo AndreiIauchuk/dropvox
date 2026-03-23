@@ -27,6 +27,8 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
+        //Auth here
+
         String fileId = ctx.pathParam("fileId");
 
         authServiceClient.validateToken("token")
