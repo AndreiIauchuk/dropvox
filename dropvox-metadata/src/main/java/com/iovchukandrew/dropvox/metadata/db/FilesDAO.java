@@ -40,18 +40,49 @@ public class FilesDAO {
                 .execute(Tuple.of(fileId, ownerId))
                 .compose(rows -> {
                     if (rows.size() == 0) {
-                        return Future.failedFuture(
-                                String.format("File not found by {fileId=%s, ownerId=%s}", fileId, ownerId));
+                        return Future.failedFuture(new FileMetadataNotFoundException(
+                                String.format("File not found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
                     if (rows.size() > 1) {
-                        return Future.failedFuture(
+                        return Future.failedFuture(new FileMetadataInvariantViolationException(
                                 String.format("Expected exactly 1 file by {fileId=%s, ownerId=%s}, but got %s",
-                                        fileId, ownerId, rows.size()));
+                                        fileId, ownerId, rows.size())));
                     }
                     Row row = rows.iterator().next();
                     return Future.succeededFuture(mapRowToJson(row));
                 })
                 .onFailure(e -> log.error("Unable to find a file by {fileId={}, ownerId={}}", fileId, ownerId, e));
+    }
+
+    /**
+     * Retrieves pending file metadata for a given file ID and owner ID.
+     *
+     * @param fileId  the file identifier
+     * @param ownerId the file owner identifier
+     * @return Future containing pending file metadata as JsonObject
+     */
+    public Future<JsonObject> findPendingFileByIdAndOwner(UUID fileId, UUID ownerId) {
+        log.info("Retrieving pending file metadata by {fileId={}, ownerId={}}", fileId, ownerId);
+
+        String sql = "SELECT id, name, size, content_type, owner_id, bucket, s3_key, created_at, updated_at " +
+                "FROM files WHERE id = $1 AND owner_id = $2 AND status = 'PENDING'";
+
+        return pool.preparedQuery(sql)
+                .execute(Tuple.of(fileId, ownerId))
+                .compose(rows -> {
+                    if (rows.size() == 0) {
+                        return Future.failedFuture(new FileMetadataNotFoundException(
+                                String.format("Pending file not found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
+                    }
+                    if (rows.size() > 1) {
+                        return Future.failedFuture(new FileMetadataInvariantViolationException(
+                                String.format("Expected exactly 1 pending file by {fileId=%s, ownerId=%s}, but got %s",
+                                        fileId, ownerId, rows.size())));
+                    }
+                    Row row = rows.iterator().next();
+                    return Future.succeededFuture(mapRowToJson(row));
+                })
+                .onFailure(e -> log.error("Unable to find a pending file by {fileId={}, ownerId={}}", fileId, ownerId, e));
     }
 
     /**
@@ -106,8 +137,8 @@ public class FilesDAO {
                 .execute(Tuple.of(fileId, ownerId))
                 .compose(rows -> {
                     if (rows.size() == 0) {
-                        return Future.failedFuture(
-                                String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId));
+                        return Future.failedFuture(new FileMetadataNotFoundException(
+                                String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
                     return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 })

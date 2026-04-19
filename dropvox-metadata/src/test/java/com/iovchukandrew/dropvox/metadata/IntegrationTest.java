@@ -3,6 +3,8 @@ package com.iovchukandrew.dropvox.metadata;
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.db.FlywayRunner;
 import com.iovchukandrew.dropvox.metadata.db.PgPoolCreator;
+import com.iovchukandrew.dropvox.metadata.s3.S3ClientFactory;
+import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignerFactory;
 import com.iovchukandrew.dropvox.metadata.server.HttpHeader;
@@ -40,6 +42,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static com.iovchukandrew.dropvox.metadata.server.FileNotYetUploadedException.FILE_NOT_YET_UPLOADED_ERROR_MSG;
+import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -68,6 +72,7 @@ class IntegrationTest {
 
     private static Vertx vertx;
     private static Pool pool;
+    private static S3Client s3Client;
     private static S3Presigner s3Presigner;
     private static String serverBaseUrl;
 
@@ -97,10 +102,12 @@ class IntegrationTest {
 
         pool = PgPoolCreator.create(vertx, config);
         FilesDAO filesDAO = new FilesDAO(pool);
+        s3Client = S3ClientFactory.create(config);
         s3Presigner = S3PresignerFactory.create(config);
+        S3ObjectExistenceChecker s3ObjectExistenceChecker = new S3ObjectExistenceChecker(s3Client);
         S3PresignedUrlGenerator s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
 
-        vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
+        vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, s3ObjectExistenceChecker, config))
                 .await(10, TimeUnit.SECONDS);
 
         serverBaseUrl = "http://localhost:" + serverPort;
@@ -110,6 +117,9 @@ class IntegrationTest {
     static void tearDown() throws Exception {
         if (pool != null) {
             pool.close().await(10, TimeUnit.SECONDS);
+        }
+        if (s3Client != null) {
+            s3Client.close();
         }
         if (s3Presigner != null) {
             s3Presigner.close();
@@ -190,6 +200,35 @@ class IntegrationTest {
         );
         assertThat(fetchedFile.statusCode()).isEqualTo(200);
         assertThat(fetchedFile.body()).isEqualTo(fileContent);
+    }
+
+    @Test
+    void shouldRejectCompleteWhenObjectWasNotUploaded() throws Exception {
+        UUID userId = UUID.randomUUID();
+
+        HttpResponse<String> initResponse = postJson(
+                serverBaseUrl + "/files/init",
+                userId,
+                new JsonObject()
+                        .put("filename", "voice test.wav")
+                        .put("size", 123L)
+                        .put("contentType", "audio/wav")
+                        .encode()
+        );
+
+        assertThat(initResponse.statusCode()).isEqualTo(200);
+        UUID fileId = UUID.fromString(new JsonObject(initResponse.body()).getString("fileId"));
+
+        HttpResponse<String> completeResponse = postWithoutBody(
+                serverBaseUrl + "/files/complete/" + fileId,
+                userId
+        );
+
+        assertThat(completeResponse.statusCode()).isEqualTo(HTTP_CONFLICT);
+        assertThat(completeResponse.body()).isEqualTo(FILE_NOT_YET_UPLOADED_ERROR_MSG);
+
+        JsonObject fileAfterRejectedComplete = fetchFileRecord(fileId, userId);
+        assertThat(fileAfterRejectedComplete.getString("status")).isEqualTo("PENDING");
     }
 
     private static JsonObject fetchFileRecord(UUID fileId, UUID userId) throws Exception {

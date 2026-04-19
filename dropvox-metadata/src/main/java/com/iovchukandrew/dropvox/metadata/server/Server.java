@@ -1,6 +1,7 @@
 package com.iovchukandrew.dropvox.metadata.server;
 
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
+import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
@@ -21,11 +22,18 @@ public class Server extends VerticleBase {
 
     private final FilesDAO filesDAO;
     private final S3PresignedUrlGenerator s3PresignedUrlGenerator;
+    private final S3ObjectExistenceChecker s3ObjectExistenceChecker;
     private final JsonObject config;
 
-    public Server(FilesDAO filesDAO, S3PresignedUrlGenerator s3PresignedUrlGenerator, JsonObject config) {
+    public Server(
+            FilesDAO filesDAO,
+            S3PresignedUrlGenerator s3PresignedUrlGenerator,
+            S3ObjectExistenceChecker s3ObjectExistenceChecker,
+            JsonObject config
+    ) {
         this.filesDAO = filesDAO;
         this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
+        this.s3ObjectExistenceChecker = s3ObjectExistenceChecker;
         this.config = config;
     }
 
@@ -42,7 +50,7 @@ public class Server extends VerticleBase {
         router.post("/files/init")
                 .handler(new FileUploadInitHandler(filesDAO, s3PresignedUrlGenerator, bucketName));
         router.post("/files/complete/:fileId")
-                .handler(new FileUploadCompleteHandler(filesDAO));
+                .handler(new FileUploadCompleteHandler(filesDAO, s3ObjectExistenceChecker));
 
         int port = config.getInteger("server.port");
         return vertx.createHttpServer()
