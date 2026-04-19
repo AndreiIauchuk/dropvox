@@ -1,0 +1,44 @@
+@dockerApi = http://localhost:8082
+@localApi = http://localhost:9082
+@api = {{dockerApi}}
+@userId = 3b069db6-b46a-4766-96d8-9bee5c5a32be
+@downloadUrl = {{downloadUrl}}
+
+### 1) Init upload and capture fileId + uploadUrl
+POST {{api}}/files/init
+Accept: application/json
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "filename": "Engine",
+  "contentType": "ini",
+  "size": 11000
+}
+> {%
+    client.global.set("fileId", response.body.fileId);
+    client.global.set("uploadUrl", response.body.uploadUrl);
+%}
+
+### 2) Upload content to MinIO using presigned URL
+PUT {{uploadUrl}}
+Content-Type: application/octet-stream
+
+< ./Engine.ini
+
+### 3) Mark upload as complete
+POST {{api}}/files/complete/{{fileId}}
+Accept: application/json
+X-User-Id: {{userId}}
+
+### 4) Get downloadUrl for uploaded file
+GET {{api}}/files/{{fileId}}
+Accept: application/json
+X-User-Id: {{userId}}
+
+> {%
+    client.global.set("downloadUrl", response.body.downloadUrl);
+%}
+
+### 5) Download uploaded file
+GET {{downloadUrl}}

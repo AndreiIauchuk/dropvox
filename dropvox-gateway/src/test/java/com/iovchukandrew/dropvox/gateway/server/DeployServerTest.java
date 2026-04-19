@@ -1,26 +1,16 @@
-package com.iovchukandrew.dropvox.metadata.server;
+package com.iovchukandrew.dropvox.gateway.server;
 
-import com.iovchukandrew.dropvox.metadata.ConfigRetrieverFactory;
-import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
-import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
-import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
+import com.iovchukandrew.dropvox.gateway.ConfigRetrieverFactory;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.WebClient;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 
 @ExtendWith(VertxExtension.class)
 public class DeployServerTest {
-
-    @Mock
-    FilesDAO filesDAO;
-    @Mock
-    S3PresignedUrlGenerator s3PresignedUrlGenerator;
-    @Mock
-    S3ObjectExistenceChecker s3ObjectExistenceChecker;
 
     @Test
     void shouldDeployServer(Vertx vertx, VertxTestContext testContext) {
@@ -31,7 +21,8 @@ public class DeployServerTest {
     }
 
     private void deployServer(Vertx vertx, VertxTestContext testContext, JsonObject config) {
-        vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, s3ObjectExistenceChecker, config))
+        WebClient webClient = WebClient.create(vertx);
+        vertx.deployVerticle(new Server(webClient, config))
                 .onComplete(handler -> {
                     if (handler.succeeded()) {
                         testContext.completeNow();

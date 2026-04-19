@@ -3,6 +3,8 @@ package com.iovchukandrew.dropvox.metadata;
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.db.FlywayRunner;
 import com.iovchukandrew.dropvox.metadata.db.PgPoolCreator;
+import com.iovchukandrew.dropvox.metadata.s3.S3ClientFactory;
+import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignerFactory;
 import com.iovchukandrew.dropvox.metadata.server.Server;
@@ -65,12 +67,14 @@ public class MetadataMain {
 
     private static Future<AppContext> startApplication(Vertx vertx, JsonObject config) {
         var sqlPool = PgPoolCreator.create(vertx, config);
+        var s3Client = S3ClientFactory.create(config);
         var s3Presigner = S3PresignerFactory.create(config);
+        var s3ObjectExistenceChecker = new S3ObjectExistenceChecker(s3Client);
         var s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
         var metadataDAO = new FilesDAO(sqlPool);
 
-        return deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, config)
-                .map(id -> new AppContext(sqlPool, s3Presigner));
+        return deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, s3ObjectExistenceChecker, config)
+                .map(id -> new AppContext(sqlPool, s3Client, s3Presigner));
     }
 
     private static void setupShutdownHook(Vertx vertx, AppContext ctx) {
@@ -87,9 +91,10 @@ public class MetadataMain {
             Vertx vertx,
             FilesDAO filesDAO,
             S3PresignedUrlGenerator s3PresignedUrlGenerator,
+            S3ObjectExistenceChecker s3ObjectExistenceChecker,
             JsonObject config
     ) {
-        return vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, config))
+        return vertx.deployVerticle(new Server(filesDAO, s3PresignedUrlGenerator, s3ObjectExistenceChecker, config))
                 .onSuccess(id -> log.info("Verticle deployed [id:{}]", id));
     }
 

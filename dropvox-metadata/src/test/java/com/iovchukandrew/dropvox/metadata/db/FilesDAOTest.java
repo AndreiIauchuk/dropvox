@@ -95,6 +95,7 @@ class FilesDAOTest {
 
         assertThatThrownBy(() -> filesDAO.findFileByIdAndOwner(fileId, ownerId)
                 .await(10, TimeUnit.SECONDS))
+                .isInstanceOf(FileMetadataNotFoundException.class)
                 .hasMessage("File not found by {fileId=%s, ownerId=%s}".formatted(fileId, ownerId));
     }
 
@@ -168,6 +169,7 @@ class FilesDAOTest {
 
         assertThatThrownBy(() -> filesDAO.confirmFileUpload(fileId, ownerId)
                 .await(10, TimeUnit.SECONDS))
+                .isInstanceOf(FileMetadataNotFoundException.class)
                 .hasMessage("No pending file metadata was found by {fileId=%s, ownerId=%s}".formatted(fileId, ownerId));
     }
 
