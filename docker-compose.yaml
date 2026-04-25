@@ -3,9 +3,9 @@ services:
     image: postgres:15
     container_name: dropvox-postgres
     environment:
-      POSTGRES_DB: dropvox
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: ${POSTGRES_DB:-dropvox}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pass}
     ports:
       - "5432:5432"
     volumes:
@@ -23,8 +23,8 @@ services:
     container_name: dropvox-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -47,18 +47,18 @@ services:
       SERVER_PORT: 8082
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_DATABASE: dropvox
-      DB_SCHEME: metadata
-      DB_USER: user
-      DB_PASSWORD: pass
+      DB_DATABASE: ${POSTGRES_DB:-dropvox}
+      DB_SCHEME: ${DB_SCHEME:-metadata}
+      DB_USER: ${POSTGRES_USER:-user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-pass}
       DB_POOL_MAX_SIZE: 5
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_BUCKET: dropvox-files
-      S3_REGION: us-east-1
-      PRESIGNED_URL_EXPIRY_MINUTES: 5
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-dropvox-files}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      PRESIGNED_URL_EXPIRY_MINUTES: ${S3_PRESIGNED_URL_EXPIRY_MINUTES:-5}
     ports:
       - "8082:8082"
     depends_on:
