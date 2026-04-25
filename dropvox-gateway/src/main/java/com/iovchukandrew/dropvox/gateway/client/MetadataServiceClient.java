@@ -75,15 +75,26 @@ public class MetadataServiceClient {
         int status = resp.statusCode();
 
         if (status < 200 || status >= 300) {
-            String msg = "Metadata service returned " + status + " for " + operation;
-            return Future.failedFuture(msg);
+            return Future.failedFuture(new MetadataServiceException(status, extractErrorMessage(resp, operation)));
         }
 
         JsonObject body = resp.bodyAsJsonObject();
         if (body == null) {
-            return Future.failedFuture("Metadata service returned empty/invalid JSON for " + operation);
+            return Future.failedFuture("Service returned empty/invalid JSON for " + operation);
         }
 
         return Future.succeededFuture(body);
+    }
+
+    private String extractErrorMessage(HttpResponse<Buffer> resp, String operation) {
+        String body = resp.bodyAsString();
+        if (body != null) {
+            String trimmedBody = body.trim();
+            if (!trimmedBody.isEmpty()) {
+                return trimmedBody;
+            }
+        }
+
+        return "Service returned " + resp.statusCode() + " for " + operation;
     }
 }
