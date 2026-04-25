@@ -6,6 +6,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -51,9 +52,10 @@ public class Server extends VerticleBase {
         FileUploadCompleteHandler fileUploadCompleteHandler =
                 new FileUploadCompleteHandler(authServiceClient, metadataServiceClient);
 
+        HttpServerOptions serverOptions = new HttpServerOptions().setHttp2ClearTextEnabled(false);
         int port = config.getInteger("server.port");
         return buildRouter(fileDownloadHandler, fileUploadInitHandler, fileUploadCompleteHandler)
-                .compose(router -> vertx.createHttpServer()
+                .compose(router -> vertx.createHttpServer(serverOptions)
                         .requestHandler(router)
                         .listen(port))
                 .onSuccess(server -> log.info("Server started on port {}", server.actualPort()))
