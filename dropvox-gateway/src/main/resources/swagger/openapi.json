@@ -1,0 +1,260 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dropvox Gateway API",
+    "version": "1.0.0",
+    "description": "Public API exposed by the Dropvox gateway. Authentication is not wired yet in the current implementation, so the gateway resolves requests using a temporary fixed user."
+  },
+  "tags": [
+    {
+      "name": "Files"
+    }
+  ],
+  "paths": {
+    "/files/init": {
+      "post": {
+        "operationId": "initFileUpload",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Initialize a file upload",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileUploadInitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload initialized successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadInitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/files/complete/{fileId}": {
+      "post": {
+        "operationId": "completeFileUpload",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Mark an uploaded file as complete",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FileId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Upload marked as complete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMetadata"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/files/{fileId}": {
+      "get": {
+        "operationId": "downloadFile",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Fetch file metadata and a download URL",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FileId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDownloadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "FileId": {
+        "name": "fileId",
+        "in": "path",
+        "required": true,
+        "description": "File identifier",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid or missing request data",
+        "content": {
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "The request failed downstream or an unexpected server error occurred",
+        "content": {
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "FileUploadInitRequest": {
+        "type": "object",
+        "required": [
+          "filename",
+          "contentType",
+          "size"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "FileMetadata": {
+        "type": "object",
+        "required": [
+          "fileId",
+          "name",
+          "size",
+          "contentType",
+          "ownerId",
+          "bucket",
+          "s3Key",
+          "uploadedAt"
+        ],
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bucket": {
+            "type": "string"
+          },
+          "s3Key": {
+            "type": "string"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastModifiedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "FileUploadInitResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FileMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "uploadUrl"
+            ],
+            "properties": {
+              "uploadUrl": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        ]
+      },
+      "FileDownloadResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FileMetadata"
+          },
+          {
+            "type": "object",
+            "required": [
+              "downloadUrl"
+            ],
+            "properties": {
+              "downloadUrl": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

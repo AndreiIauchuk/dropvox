@@ -38,6 +38,25 @@ services:
       timeout: 5s
       retries: 5
 
+  dropvox-gateway:
+    build:
+      context: .
+      dockerfile: ./dropvox-gateway/Dockerfile
+    container_name: dropvox-gateway
+    environment:
+      SERVER_PORT: 8080
+      AUTH_SERVICE_HOST: dropvox-auth
+      AUTH_SERVICE_PORT: 8081
+      METADATA_SERVICE_HOST: dropvox-metadata
+      METADATA_SERVICE_PORT: 8082
+    ports:
+      - "8080:8080"
+    depends_on:
+      - dropvox-auth
+      - dropvox-metadata
+    networks:
+      - dropvox-net
+
   dropvox-metadata:
     build:
       context: .
@@ -81,25 +100,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - dropvox-net
-
-  dropvox-gateway:
-    build:
-      context: .
-      dockerfile: ./dropvox-gateway/Dockerfile
-    container_name: dropvox-gateway
-    environment:
-      SERVER_PORT: 8080
-      AUTH_SERVICE_HOST: dropvox-auth
-      AUTH_SERVICE_PORT: 8081
-      METADATA_SERVICE_HOST: dropvox-metadata
-      METADATA_SERVICE_PORT: 8082
-    ports:
-      - "8080:8080"
-    depends_on:
-      - dropvox-auth
-      - dropvox-metadata
     networks:
       - dropvox-net
 
