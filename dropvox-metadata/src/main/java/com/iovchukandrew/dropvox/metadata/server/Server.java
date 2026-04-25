@@ -6,6 +6,7 @@ import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Future;
 import io.vertx.core.VerticleBase;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -52,8 +53,9 @@ public class Server extends VerticleBase {
         router.post("/files/complete/:fileId")
                 .handler(new FileUploadCompleteHandler(filesDAO, s3ObjectExistenceChecker));
 
+        HttpServerOptions serverOptions = new HttpServerOptions().setHttp2ClearTextEnabled(false);
         int port = config.getInteger("server.port");
-        return vertx.createHttpServer()
+        return vertx.createHttpServer(serverOptions)
                 .requestHandler(router)
                 .listen(port)
                 .onSuccess(s -> log.info("Server started on {} port", port))

@@ -15,7 +15,7 @@
     </modules>
 
     <properties>
-        <vertx.version>5.0.7</vertx.version>
+        <vertx.version>5.0.11</vertx.version>
         <junit-jupiter.version>6.0.2</junit-jupiter.version>
         <mockito.version>5.21.0</mockito.version>
         <assertj.version>3.27.7</assertj.version>
@@ -24,6 +24,7 @@
         <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
         <flyway.version>12.0.1</flyway.version>
         <postgresql-driver.version>42.7.10</postgresql-driver.version>
+        <swagger.version>5.32.2</swagger.version>
         <testcontainers.version>1.21.4</testcontainers.version>
 
         <maven.compiler.source>21</maven.compiler.source>
@@ -88,6 +89,13 @@
             <version>${postgresql-driver.version}</version>
         </dependency>
 
+        <!-- Swagger -->
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>swagger-ui</artifactId>
+            <version>${swagger.version}</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -109,6 +117,16 @@
                 <artifactId>vertx-pg-client</artifactId>
                 <version>${vertx.version}</version>
                 <scope>compile</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.vertx</groupId>
+                <artifactId>vertx-web-openapi-router</artifactId>
+                <version>${vertx.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.webjars</groupId>
+                <artifactId>swagger-ui</artifactId>
+                <version>5.32.2</version>
             </dependency>
 
             <!-- S3 MinIO -->

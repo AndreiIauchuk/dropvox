@@ -39,5 +39,10 @@ build/
 ### Logs ###
 /logs/*
 
+### Env ###
+.env
+.env.*
+!.env.example
+
 ### Other ###
 TODO.txt
