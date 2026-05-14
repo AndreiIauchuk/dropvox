@@ -11,6 +11,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.micrometer.PrometheusScrapingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -42,6 +43,9 @@ public class Server extends VerticleBase {
     public Future<HttpServer> start() {
         Router router = Router.router(vertx);
         router.route().handler(this::traceIdMiddleware);
+        router.get("/health/live").handler(ctx -> respondWithStatus(ctx, "live"));
+        router.get("/health/ready").handler(ctx -> respondWithStatus(ctx, "ready"));
+        router.get("/metrics").handler(PrometheusScrapingHandler.create());
         router.route().handler(BodyHandler.create());
 
         String bucketName = config.getString("s3.bucket");
@@ -72,5 +76,14 @@ public class Server extends VerticleBase {
 
         ctx.addEndHandler(v -> MDC.remove("traceId"));
         ctx.next();
+    }
+
+    private void respondWithStatus(RoutingContext ctx, String check) {
+        ctx.response()
+                .putHeader("Content-Type", "application/json")
+                .end(new JsonObject()
+                        .put("status", "UP")
+                        .put("check", check)
+                        .encode());
     }
 }

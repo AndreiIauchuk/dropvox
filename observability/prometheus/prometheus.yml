@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+
+  - job_name: dropvox-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - dropvox-gateway:8080
+        labels:
+          service: gateway
+
+  - job_name: dropvox-metadata
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - dropvox-metadata:8082
+        labels:
+          service: metadata
+
+  - job_name: dropvox-auth
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - dropvox-auth:8081
+        labels:
+          service: auth

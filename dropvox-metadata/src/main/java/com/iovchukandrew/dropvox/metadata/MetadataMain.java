@@ -8,9 +8,19 @@ import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import com.iovchukandrew.dropvox.metadata.s3.S3PresignerFactory;
 import com.iovchukandrew.dropvox.metadata.server.Server;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.jvm.ClassLoaderMetrics;
+import io.micrometer.core.instrument.binder.jvm.JvmGcMetrics;
+import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
+import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
+import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonObject;
+import io.vertx.micrometer.MicrometerMetricsOptions;
+import io.vertx.micrometer.VertxPrometheusOptions;
+import io.vertx.micrometer.backends.BackendRegistries;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +36,7 @@ public class MetadataMain {
         configureLogging();
         log.info("Application started");
 
-        Vertx vertx = Vertx.vertx();
+        Vertx vertx = createVertx();
 
         var configRetriever = ConfigRetrieverFactory.create(vertx);
 
@@ -54,7 +64,7 @@ public class MetadataMain {
         Map<String, Object> updates = new HashMap<>();
         config.fieldNames()
                 .forEach(envKey -> {
-                    String configKey = envKey.toLowerCase().replaceAll("_", ".");
+                    String configKey = envKey.toLowerCase().replace("_", ".");
                     updates.put(configKey, config.getValue(envKey));
                 });
 
@@ -63,6 +73,32 @@ public class MetadataMain {
 
     private static Future<MigrateResult> runFlywayMigration(Vertx vertx, JsonObject config) {
         return vertx.executeBlocking(() -> new FlywayRunner().runMigration(config));
+    }
+
+    private static Vertx createVertx() {
+        Vertx vertx = Vertx.vertx(new VertxOptions().setMetricsOptions(
+                new MicrometerMetricsOptions()
+                        .setPrometheusOptions(new VertxPrometheusOptions()
+                                .setEnabled(true)
+                                .setPublishQuantiles(true))
+                        .setEnabled(true)));
+        bindJvmMetrics();
+        return vertx;
+    }
+
+    private static void bindJvmMetrics() {
+        MeterRegistry registry = BackendRegistries.getDefaultNow();
+        if (registry == null) {
+            return;
+        }
+
+        try (JvmGcMetrics jvmGcMetrics = new JvmGcMetrics()) {
+            jvmGcMetrics.bindTo(registry);
+        }
+        new ClassLoaderMetrics().bindTo(registry);
+        new JvmMemoryMetrics().bindTo(registry);
+        new JvmThreadMetrics().bindTo(registry);
+        new ProcessorMetrics().bindTo(registry);
     }
 
     private static Future<AppContext> startApplication(Vertx vertx, JsonObject config) {
