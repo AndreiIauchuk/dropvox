@@ -12,15 +12,19 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.micrometer.Label;
 import io.vertx.micrometer.MicrometerMetricsOptions;
 import io.vertx.micrometer.VertxPrometheusOptions;
 import io.vertx.micrometer.backends.BackendRegistries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static io.vertx.micrometer.MicrometerMetricsOptions.DEFAULT_LABELS;
 
 public class GatewayMain {
     private static final Logger log = LoggerFactory.getLogger(GatewayMain.class);
@@ -68,9 +72,16 @@ public class GatewayMain {
                         .setPrometheusOptions(new VertxPrometheusOptions()
                                 .setEnabled(true)
                                 .setPublishQuantiles(true))
+                        .setLabels(createLabels())
                         .setEnabled(true)));
         bindJvmMetrics();
         return vertx;
+    }
+
+    private static EnumSet<Label> createLabels() {
+        var labels = EnumSet.copyOf(DEFAULT_LABELS);
+        labels.add(Label.HTTP_PATH);
+        return labels;
     }
 
     private static void bindJvmMetrics() {

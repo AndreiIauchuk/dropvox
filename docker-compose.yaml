@@ -56,6 +56,31 @@ services:
       - dropvox-metadata
     networks:
       - dropvox-net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dropvox-auth:
+    build:
+      context: .
+      dockerfile: ./dropvox-auth/Dockerfile
+    container_name: dropvox-auth
+    environment:
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dropvox-net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   dropvox-metadata:
     build:
@@ -87,21 +112,11 @@ services:
         condition: service_healthy
     networks:
       - dropvox-net
-
-  dropvox-auth:
-    build:
-      context: .
-      dockerfile: ./dropvox-auth/Dockerfile
-    container_name: dropvox-auth
-    environment:
-      SERVER_PORT: 8081
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - dropvox-net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8082/health/live" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:v3.11.3

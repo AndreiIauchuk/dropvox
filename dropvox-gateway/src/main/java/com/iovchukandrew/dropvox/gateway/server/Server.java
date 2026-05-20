@@ -77,8 +77,9 @@ public class Server extends VerticleBase {
                 .map(contract -> {
                     Router router = Router.router(vertx);
                     router.route().handler(this::traceIdMiddleware);
-                    router.get("/health/live").handler(ctx -> respondWithStatus(ctx, "live"));
-                    router.get("/health/ready").handler(ctx -> respondWithStatus(ctx, "ready"));
+                    router.get("/health/live").handler(ctx -> ctx.response()
+                            .putHeader("Content-Type", "application/json")
+                            .end(new JsonObject().put("status", "UP").encode()));
                     router.get("/metrics").handler(PrometheusScrapingHandler.create());
                     configureDocsRoutes(router);
 
@@ -156,15 +157,6 @@ public class Server extends VerticleBase {
                 .setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR)
                 .putHeader("Content-Type", "text/plain")
                 .end(failure == null ? "Internal Server Error" : failure.getMessage());
-    }
-
-    private void respondWithStatus(RoutingContext ctx, String check) {
-        ctx.response()
-                .putHeader("Content-Type", "application/json")
-                .end(new JsonObject()
-                        .put("status", "UP")
-                        .put("check", check)
-                        .encode());
     }
 
     private Throwable extractValidatorException(Throwable failure) {

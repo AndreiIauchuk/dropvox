@@ -53,12 +53,92 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(vertx_http_server_requests_count[5m]))",
+          "expr": "sum by (service) (rate(vertx_http_server_requests_total{path!=\"/metrics\"}[3m]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
       "title": "Request Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (service) (irate(vertx_http_server_requests_total{path!=\"/metrics\"}[3m]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate Spikes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(vertx_http_server_response_time_seconds_bucket{path!=\"/metrics\"}[3m])))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "P95 Response Time",
       "type": "timeseries"
     },
     {
@@ -79,7 +159,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 8
       },
       "id": 2,
       "options": {
@@ -93,12 +173,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(vertx_http_server_response_time_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, service) (rate(vertx_http_server_response_time_seconds_bucket{path!=\"/metrics\"}[3m])))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
-      "title": "P95 Response Time",
+      "title": "P99 Response Time",
       "type": "timeseries"
     },
     {
@@ -119,7 +199,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 16
       },
       "id": 3,
       "options": {
@@ -133,12 +213,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(vertx_http_server_requests_count{code=~\"5..\"}[5m])) / clamp_min(sum by (service) (rate(vertx_http_server_requests_count[5m])), 0.0001)",
+          "expr": "sum by (service) (rate(vertx_http_server_requests_total{code=~\"4..\", path!=\"/metrics\"}[3m])) / sum by (service) (rate(vertx_http_server_requests_total{path!=\"/metrics\"}[3m]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
-      "title": "5xx Error Ratio",
+      "title": "4xx Error Ratio",
       "type": "timeseries"
     },
     {
@@ -151,7 +231,7 @@
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "bytes"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -159,9 +239,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 16
       },
-      "id": 4,
+      "id": 3,
       "options": {
         "legend": {
           "displayMode": "table",
@@ -173,12 +253,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (jvm_memory_used_bytes{area=\"heap\"})",
+          "expr": "sum by (service) (rate(vertx_http_server_requests_total{code=~\"5..\", path!=\"/metrics\"}[3m])) / sum by (service) (rate(vertx_http_server_requests_total{path!=\"/metrics\"}[3m]))",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
-      "title": "Heap Used",
+      "title": "5xx Error Ratio",
       "type": "timeseries"
     },
     {
@@ -190,7 +270,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "id": 5,
       "options": {
@@ -213,7 +293,7 @@
       "type": "logs"
     }
   ],
-  "refresh": "10s",
+  "refresh": "5s",
   "schemaVersion": 41,
   "style": "dark",
   "tags": [
@@ -224,7 +304,7 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-5m",
     "to": "now"
   },
   "timepicker": {},

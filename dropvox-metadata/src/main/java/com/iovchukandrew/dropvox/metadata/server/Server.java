@@ -43,8 +43,9 @@ public class Server extends VerticleBase {
     public Future<HttpServer> start() {
         Router router = Router.router(vertx);
         router.route().handler(this::traceIdMiddleware);
-        router.get("/health/live").handler(ctx -> respondWithStatus(ctx, "live"));
-        router.get("/health/ready").handler(ctx -> respondWithStatus(ctx, "ready"));
+        router.get("/health/live").handler(ctx -> ctx.response()
+                .putHeader("Content-Type", "application/json")
+                .end(new JsonObject().put("status", "UP").encode()));
         router.get("/metrics").handler(PrometheusScrapingHandler.create());
         router.route().handler(BodyHandler.create());
 
@@ -76,14 +77,5 @@ public class Server extends VerticleBase {
 
         ctx.addEndHandler(v -> MDC.remove("traceId"));
         ctx.next();
-    }
-
-    private void respondWithStatus(RoutingContext ctx, String check) {
-        ctx.response()
-                .putHeader("Content-Type", "application/json")
-                .end(new JsonObject()
-                        .put("status", "UP")
-                        .put("check", check)
-                        .encode());
     }
 }

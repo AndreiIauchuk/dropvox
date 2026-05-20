@@ -10,7 +10,9 @@ import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.micrometer.Label;
 import io.vertx.micrometer.MicrometerMetricsOptions;
 import io.vertx.micrometer.PrometheusScrapingHandler;
 import io.vertx.micrometer.VertxPrometheusOptions;
@@ -19,8 +21,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.UUID;
+
+import static io.vertx.micrometer.MicrometerMetricsOptions.DEFAULT_LABELS;
 
 public class AuthMain {
     private static final Logger log = LoggerFactory.getLogger(AuthMain.class);
@@ -34,12 +39,9 @@ public class AuthMain {
         Router router = Router.router(vertx);
         router.route().handler(AuthMain::traceIdMiddleware);
         router.route().handler(BodyHandler.create());
-        router.get("/health/live").handler(ctx -> respondWithStatus(ctx, "live"));
-        router.get("/health/ready").handler(ctx -> respondWithStatus(ctx, "ready"));
+        router.get("/health/live").handler(ctx -> respondWithKey(ctx, "status", "UP"));
         router.get("/metrics").handler(PrometheusScrapingHandler.create());
-        router.post("/validate").handler(ctx -> ctx.response()
-                .putHeader("Content-Type", "application/json")
-                .end(new JsonObject().put("userId", USER_ID).encode()));
+        router.post("/validate").handler(ctx -> respondWithKey(ctx, "userId", USER_ID));
 
         int port = Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "8081"));
         vertx.createHttpServer()
@@ -58,9 +60,16 @@ public class AuthMain {
                         .setPrometheusOptions(new VertxPrometheusOptions()
                                 .setEnabled(true)
                                 .setPublishQuantiles(true))
+                        .setLabels(createLabels())
                         .setEnabled(true)));
         bindJvmMetrics();
         return vertx;
+    }
+
+    private static EnumSet<Label> createLabels() {
+        var labels = EnumSet.copyOf(DEFAULT_LABELS);
+        labels.add(Label.HTTP_PATH);
+        return labels;
     }
 
     private static void bindJvmMetrics() {
@@ -78,7 +87,7 @@ public class AuthMain {
         new ProcessorMetrics().bindTo(registry);
     }
 
-    private static void traceIdMiddleware(io.vertx.ext.web.RoutingContext ctx) {
+    private static void traceIdMiddleware(RoutingContext ctx) {
         String traceId = Optional.ofNullable(ctx.request().getHeader(TRACE_ID))
                 .orElse(UUID.randomUUID().toString());
 
@@ -88,13 +97,10 @@ public class AuthMain {
         ctx.next();
     }
 
-    private static void respondWithStatus(io.vertx.ext.web.RoutingContext ctx, String check) {
+    private static void respondWithKey(RoutingContext ctx, String key, Object value) {
         ctx.response()
                 .putHeader("Content-Type", "application/json")
-                .end(new JsonObject()
-                        .put("status", "UP")
-                        .put("check", check)
-                        .encode());
+                .end(new JsonObject().put(key, value).encode());
     }
 
     private static void configureLogging() {
