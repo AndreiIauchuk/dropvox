@@ -26,6 +26,7 @@
         <postgresql-driver.version>42.7.10</postgresql-driver.version>
         <swagger.version>5.32.2</swagger.version>
         <testcontainers.version>1.21.4</testcontainers.version>
+        <micrometer.version>1.16.5</micrometer.version>
 
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
@@ -49,6 +50,16 @@
             <groupId>io.vertx</groupId>
             <artifactId>vertx-config</artifactId>
             <version>${vertx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-micrometer-metrics</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <version>${micrometer.version}</version>
         </dependency>
 
         <!-- Testing-->

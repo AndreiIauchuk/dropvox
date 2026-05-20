@@ -1,6 +1,7 @@
 package com.iovchukandrew.dropvox.gateway.server;
 
 import com.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
+import com.iovchukandrew.dropvox.gateway.client.HttpHeader;
 import com.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -15,12 +16,17 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.openapi.router.OpenAPIRoute;
 import io.vertx.ext.web.openapi.router.RouterBuilder;
+import io.vertx.micrometer.PrometheusScrapingHandler;
 import io.vertx.openapi.contract.OpenAPIContract;
 import io.vertx.openapi.validation.RequestUtils;
 import io.vertx.openapi.validation.ValidatorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import software.amazon.awssdk.http.HttpStatusCode;
+
+import java.util.Optional;
+import java.util.UUID;
 
 public class Server extends VerticleBase {
     private static final Logger log = LoggerFactory.getLogger(Server.class);
@@ -70,6 +76,11 @@ public class Server extends VerticleBase {
         return OpenAPIContract.from(vertx, OPENAPI_SPEC_PATH)
                 .map(contract -> {
                     Router router = Router.router(vertx);
+                    router.route().handler(this::traceIdMiddleware);
+                    router.get("/health/live").handler(ctx -> ctx.response()
+                            .putHeader("Content-Type", "application/json")
+                            .end(new JsonObject().put("status", "UP").encode()));
+                    router.get("/metrics").handler(PrometheusScrapingHandler.create());
                     configureDocsRoutes(router);
 
                     RouterBuilder routerBuilder = RouterBuilder.create(
@@ -91,6 +102,17 @@ public class Server extends VerticleBase {
                     router.route("/*").subRouter(routerBuilder.createRouter());
                     return router;
                 });
+    }
+
+    private void traceIdMiddleware(RoutingContext ctx) {
+        String traceId = Optional.ofNullable(ctx.request().getHeader(HttpHeader.TRACE_ID))
+                .orElse(UUID.randomUUID().toString());
+
+        MDC.put("traceId", traceId);
+        ctx.response().putHeader(HttpHeader.TRACE_ID, traceId);
+        ctx.put("traceId", traceId);
+        ctx.addEndHandler(v -> MDC.remove("traceId"));
+        ctx.next();
     }
 
     private void configureDocsRoutes(Router router) {

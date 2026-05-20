@@ -6,6 +6,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import org.slf4j.MDC;
 
 /**
  * Metadata Service client.
@@ -29,7 +30,7 @@ public class MetadataServiceClient {
      * @return Future containing the metadata JSON
      */
     public Future<JsonObject> getFileMetadata(String fileId, String userId) {
-        return webClient.get(port, host, "/files/" + fileId)
+        return withTrace(webClient.get(port, host, "/files/" + fileId))
                 .putHeader(HttpHeader.USER_ID, userId)
                 .send()
                 .transform(ar -> handleJsonResponse(ar, "GET /files/" + fileId));
@@ -43,7 +44,7 @@ public class MetadataServiceClient {
      * @return Future containing metadata JSON with fileId and uploadUrl
      */
     public Future<JsonObject> initFileUpload(JsonObject request, String userId) {
-        return webClient.post(port, host, "/files/init")
+        return withTrace(webClient.post(port, host, "/files/init"))
                 .putHeader(HttpHeader.USER_ID, userId)
                 .sendJsonObject(request)
                 .transform(ar -> handleJsonResponse(ar, "POST /files/init"));
@@ -57,10 +58,18 @@ public class MetadataServiceClient {
      * @return Future containing updated metadata JSON
      */
     public Future<JsonObject> completeFileUpload(String fileId, String userId) {
-        return webClient.post(port, host, "/files/complete/" + fileId)
+        return withTrace(webClient.post(port, host, "/files/complete/" + fileId))
                 .putHeader(HttpHeader.USER_ID, userId)
                 .send()
                 .transform(ar -> handleJsonResponse(ar, "POST /files/complete/" + fileId));
+    }
+
+    private io.vertx.ext.web.client.HttpRequest<Buffer> withTrace(io.vertx.ext.web.client.HttpRequest<Buffer> request) {
+        String traceId = MDC.get("traceId");
+        if (traceId != null && !traceId.isBlank()) {
+            request.putHeader(HttpHeader.TRACE_ID, traceId);
+        }
+        return request;
     }
 
     private Future<JsonObject> handleJsonResponse(
