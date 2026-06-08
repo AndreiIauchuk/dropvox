@@ -57,9 +57,9 @@ public class AuthMain {
     private static Vertx createVertx() {
         Vertx vertx = Vertx.vertx(new VertxOptions().setMetricsOptions(
                 new MicrometerMetricsOptions()
-                        .setPrometheusOptions(new VertxPrometheusOptions()
-                                .setEnabled(true)
-                                .setPublishQuantiles(true))
+                        .setPrometheusOptions(
+                                new VertxPrometheusOptions()
+                                        .setEnabled(true))
                         .setLabels(createLabels())
                         .setEnabled(true)));
         bindJvmMetrics();
@@ -68,7 +68,7 @@ public class AuthMain {
 
     private static EnumSet<Label> createLabels() {
         var labels = EnumSet.copyOf(DEFAULT_LABELS);
-        labels.add(Label.HTTP_PATH);
+        labels.add(Label.HTTP_ROUTE);
         return labels;
     }
 
