@@ -20,13 +20,13 @@ Default variables in the plan:
 
 - `host=localhost`
 - `port=8080`
-- `threads=100`
-- `ramp_up=5`
+- `threads=5000`
+- `ramp_up=60`
 - `loops=1`
 - `payload=dropvox-jmeter-payload`
 
 You can override them on the command line, for example:
 
 ```powershell
-jmeter.bat -n -t perf\jmeter\dropvox-files-flow.jmx -Jthreads=20 -Jloops=50 -Jramp_up=10 -l perf\jmeter\results.jtl
+jmeter.bat -n -t perf\jmeter\dropvox-files-flow.jmx -Jthreads=5000 -Jloops=1 -Jramp_up=60 -l perf\jmeter\results.jtl
 ```
