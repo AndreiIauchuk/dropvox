@@ -44,5 +44,9 @@ build/
 .env.*
 !.env.example
 
+### Jmeter
+jmeter.log
+perf/jmeter/results.jtl
+
 ### Other ###
 TODO.txt
