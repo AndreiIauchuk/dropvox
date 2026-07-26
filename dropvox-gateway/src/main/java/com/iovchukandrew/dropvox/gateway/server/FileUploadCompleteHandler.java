@@ -32,11 +32,17 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
         String fileId = ctx.pathParam("fileId");
 
         authServiceClient.validateToken("token")
-                .compose(userId -> metadataServiceClient.completeFileUpload(fileId, userId))
-                .onSuccess(metadata -> ctx.response()
-                        .setStatusCode(HttpStatusCode.OK)
-                        .putHeader("Content-Type", "application/json")
-                        .end(metadata.toBuffer()))
+                .compose(userId -> {
+                    log.info("Completing upload for fileId={}, userId={}", fileId, userId);
+                    return metadataServiceClient.completeFileUpload(fileId, userId);
+                })
+                .onSuccess(metadata -> {
+                    log.info("Upload completed successfully for fileId={}", fileId);
+                    ctx.response()
+                            .setStatusCode(HttpStatusCode.OK)
+                            .putHeader("Content-Type", "application/json")
+                            .end(metadata.toBuffer());
+                })
                 .onFailure(err -> {
                     log.error("Failed to complete upload", err);
                     ctx.response().setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR).end(err.getMessage());
