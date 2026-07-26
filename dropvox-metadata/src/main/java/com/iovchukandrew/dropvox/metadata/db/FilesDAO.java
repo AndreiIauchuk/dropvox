@@ -1,6 +1,7 @@
 package com.iovchukandrew.dropvox.metadata.db;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
@@ -17,9 +18,11 @@ import java.util.UUID;
 public class FilesDAO {
     private static final Logger log = LoggerFactory.getLogger(FilesDAO.class);
 
+    private final Vertx vertx;
     private final Pool pool;
 
-    public FilesDAO(Pool pool) {
+    public FilesDAO(Vertx vertx, Pool pool) {
+        this.vertx = vertx;
         this.pool = pool;
     }
 
@@ -48,8 +51,7 @@ public class FilesDAO {
                                 String.format("Expected exactly 1 file by {fileId=%s, ownerId=%s}, but got %s",
                                         fileId, ownerId, rows.size())));
                     }
-                    Row row = rows.iterator().next();
-                    return Future.succeededFuture(mapRowToJson(row));
+                    return mapRowToJsonAsync(rows.iterator().next());
                 })
                 .onFailure(e -> log.error("Unable to find a file by {fileId={}, ownerId={}}", fileId, ownerId, e));
     }
@@ -79,8 +81,7 @@ public class FilesDAO {
                                 String.format("Expected exactly 1 pending file by {fileId=%s, ownerId=%s}, but got %s",
                                         fileId, ownerId, rows.size())));
                     }
-                    Row row = rows.iterator().next();
-                    return Future.succeededFuture(mapRowToJson(row));
+                    return mapRowToJsonAsync(rows.iterator().next());
                 })
                 .onFailure(e -> log.error("Unable to find a pending file by {fileId={}, ownerId={}}", fileId, ownerId, e));
     }
@@ -113,7 +114,7 @@ public class FilesDAO {
                     if (rows.size() != 1) {
                         return Future.failedFuture("Expected to insert single pending file metadata, but got " + rows.size());
                     }
-                    return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
+                    return mapRowToJsonAsync(rows.iterator().next());
                 })
                 .onFailure(e -> log.error("Unable to create a pending file metadata", e));
     }
@@ -140,9 +141,13 @@ public class FilesDAO {
                         return Future.failedFuture(new FileMetadataNotFoundException(
                                 String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
-                    return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
+                    return mapRowToJsonAsync(rows.iterator().next());
                 })
                 .onFailure(e -> log.error("Unable to update a file metadata of uploaded file", e));
+    }
+
+    private Future<JsonObject> mapRowToJsonAsync(Row row) {
+        return vertx.executeBlocking(() -> mapRowToJson(row), false);
     }
 
     private JsonObject mapRowToJson(Row row) {
