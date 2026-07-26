@@ -34,11 +34,18 @@ public class FileUploadInitHandler implements Handler<RoutingContext> {
         }
 
         authServiceClient.validateToken("token")
-                .compose(userId -> metadataServiceClient.initFileUpload(body, userId))
-                .onSuccess(metadata -> ctx.response()
-                        .setStatusCode(HttpStatusCode.OK)
-                        .putHeader("Content-Type", "application/json")
-                        .end(metadata.toBuffer()))
+                .compose(userId -> {
+                    log.info("Initializing upload for userId={}", userId);
+                    return metadataServiceClient.initFileUpload(body, userId);
+                })
+                .onSuccess(metadata -> {
+                    log.info("Upload initialized successfully for fileId={}, userId={}",
+                            metadata.getString("fileId"), metadata.getString("ownerId"));
+                    ctx.response()
+                            .setStatusCode(HttpStatusCode.OK)
+                            .putHeader("Content-Type", "application/json")
+                            .end(metadata.toBuffer());
+                })
                 .onFailure(err -> {
                     log.error("Failed to initialize upload", err);
                     ctx.response().setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR).end(err.getMessage());

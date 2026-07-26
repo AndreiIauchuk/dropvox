@@ -10,8 +10,10 @@ import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.http.PoolOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.micrometer.Label;
 import io.vertx.micrometer.MicrometerMetricsOptions;
 import io.vertx.micrometer.VertxPrometheusOptions;
@@ -23,6 +25,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.vertx.micrometer.MicrometerMetricsOptions.DEFAULT_LABELS;
 
@@ -34,21 +37,32 @@ public class GatewayMain {
         log.info("Application started");
 
         Vertx vertx = createVertx();
-        WebClient webClient = WebClient.create(vertx);
-
         var configRetriever = ConfigRetrieverFactory.create(vertx);
+        var webClientRef = new AtomicReference<WebClient>();
 
         configRetriever.getConfig()
                 .compose(GatewayMain::prepareConfig)
-                .compose(config -> deployServer(vertx, webClient, config))
+                .compose(config -> {
+                    WebClient webClient = createWebClient(vertx, config.getInteger("webclient.metadata.pool.size", 10));
+                    webClientRef.set(webClient);
+                    return deployServer(vertx, webClient, config);
+                })
                 .onSuccess(id -> {
                     log.info("Verticle deployed [id:{}]", id);
-                    setupShutdownHook(vertx, webClient);
+                    setupShutdownHook(vertx, webClientRef.get());
                 })
                 .onFailure(e -> {
                     log.error("Failed to start an application", e);
-                    closeResources(vertx, webClient);
+                    closeResources(vertx, webClientRef.get());
                 });
+    }
+
+    private static WebClient createWebClient(Vertx vertx, int httpPoolMaxSize) {
+        PoolOptions poolOptions = new PoolOptions();
+        poolOptions.setHttp1MaxSize(httpPoolMaxSize);
+        poolOptions.setHttp2MaxSize(httpPoolMaxSize);
+        log.info("Created WebClient with httpPoolMaxSize={}", httpPoolMaxSize);
+        return WebClient.create(vertx, new WebClientOptions(), poolOptions);
     }
 
     private static Future<JsonObject> prepareConfig(JsonObject config) {
@@ -106,7 +120,9 @@ public class GatewayMain {
 
     private static void closeResources(Vertx vertx, WebClient webClient) {
         try {
-            webClient.close();
+            if (webClient != null) {
+                webClient.close();
+            }
             vertx.close().await(10, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error("Unable to close resources during shutdown", e);

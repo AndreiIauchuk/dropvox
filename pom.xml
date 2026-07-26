@@ -21,6 +21,7 @@
         <assertj.version>3.27.7</assertj.version>
         <amazon.awssdk.version>2.41.29</amazon.awssdk.version>
         <logback.version>1.5.31</logback.version>
+        <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
         <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
         <flyway.version>12.0.1</flyway.version>
         <postgresql-driver.version>42.7.10</postgresql-driver.version>
@@ -114,6 +115,11 @@
             <version>${logback.version}</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash-logback-encoder.version}</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -133,11 +139,6 @@
                 <groupId>io.vertx</groupId>
                 <artifactId>vertx-web-openapi-router</artifactId>
                 <version>${vertx.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.webjars</groupId>
-                <artifactId>swagger-ui</artifactId>
-                <version>5.32.2</version>
             </dependency>
 
             <!-- S3 MinIO -->

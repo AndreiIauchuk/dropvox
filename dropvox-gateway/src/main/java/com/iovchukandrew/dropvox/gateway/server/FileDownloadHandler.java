@@ -36,13 +36,20 @@ public class FileDownloadHandler implements Handler<RoutingContext> {
         String fileId = ctx.pathParam("fileId");
 
         authServiceClient.validateToken("token")
-                .compose(userId -> metadataServiceClient.getFileMetadata(fileId, userId))
-                .onSuccess(metadata -> ctx.response()
-                        .setStatusCode(200)
-                        .putHeader("Content-Type", "application/json")
-                        .end(metadata.toBuffer()))
+                .compose(userId -> {
+                    log.info("Fetching metadata for fileId={}, userId={}", fileId, userId);
+                    return metadataServiceClient.getFileMetadata(fileId, userId);
+                })
+                .onSuccess(metadata -> {
+                    log.info("Retrieved metadata successfully for fileId={}, userId={}",
+                            metadata.getString("fileId"), metadata.getString("ownerId"));
+                    ctx.response()
+                            .setStatusCode(200)
+                            .putHeader("Content-Type", "application/json")
+                            .end(metadata.toBuffer());
+                })
                 .onFailure(err -> {
-                    log.error("Failed to complete upload", err);
+                    log.error("Failed to retrieve file metadata", err);
                     ctx.response().setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR).end(err.getMessage());
                 });
     }

@@ -1,7 +1,21 @@
 <configuration debug="false">
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.JsonEncoder"/>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>@timestamp</fieldName>
+                    <timeZone>UTC</timeZone>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSS'Z'</pattern>
+                </timestamp>
+                <loggerName/>
+                <threadName/>
+                <level/>
+                <message/>
+                <stackTrace/>
+                <mdc/>
+            </providers>
+        </encoder>
     </appender>
 
     <root level="INFO">

@@ -6,6 +6,7 @@ import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,8 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
  */
 public class FileUploadCompleteHandler implements Handler<RoutingContext> {
     private static final Logger log = LoggerFactory.getLogger(FileUploadCompleteHandler.class);
+    private static final int MAX_S3_EXISTENCE_CHECK_ATTEMPTS = 5;
+    private static final long S3_EXISTENCE_RETRY_DELAY_MS = 200L;
 
     private final FilesDAO filesDAO;
     private final S3ObjectExistenceChecker s3ObjectExistenceChecker;
@@ -39,11 +42,7 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
         if (fileUuid == null) return;
 
         filesDAO.findPendingFileByIdAndOwner(fileUuid, userUuid)
-                .compose(metadata -> ctx.vertx().executeBlocking(() ->
-                        s3ObjectExistenceChecker.objectExists(
-                                metadata.getString("bucket"),
-                                metadata.getString("s3Key")
-                        )))
+                .compose(metadata -> checkObjectExistsWithRetry(ctx, metadata, 1))
                 .compose(objectExists -> {
                     if (!objectExists) {
                         return Future.failedFuture(new FileNotYetUploadedException());
@@ -66,5 +65,22 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                     }
                     ctx.response().setStatusCode(statusCode).end(err.getMessage());
                 });
+    }
+
+    private Future<Boolean> checkObjectExistsWithRetry(RoutingContext ctx, JsonObject metadata, int attempt) {
+        return ctx.vertx().executeBlocking(() ->
+                s3ObjectExistenceChecker.objectExists(
+                        metadata.getString("bucket"),
+                        metadata.getString("s3Key")
+                )
+        ).compose(objectExists -> {
+            if (objectExists || attempt >= MAX_S3_EXISTENCE_CHECK_ATTEMPTS) {
+                return Future.succeededFuture(objectExists);
+            }
+
+            return Future.<Void>future(promise ->
+                    ctx.vertx().setTimer(S3_EXISTENCE_RETRY_DELAY_MS, ignored -> promise.complete())
+            ).compose(ignored -> checkObjectExistsWithRetry(ctx, metadata, attempt + 1));
+        });
     }
 }
