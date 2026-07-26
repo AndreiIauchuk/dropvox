@@ -60,6 +60,7 @@ public class GatewayMain {
     private static WebClient createWebClient(Vertx vertx, int httpPoolMaxSize) {
         PoolOptions poolOptions = new PoolOptions();
         poolOptions.setHttp1MaxSize(httpPoolMaxSize);
+        poolOptions.setHttp2MaxSize(httpPoolMaxSize);
         log.info("Created WebClient with httpPoolMaxSize={}", httpPoolMaxSize);
         return WebClient.create(vertx, new WebClientOptions(), poolOptions);
     }

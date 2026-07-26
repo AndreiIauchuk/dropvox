@@ -17,11 +17,11 @@ public class S3ObjectExistenceChecker {
 
     public boolean objectExists(String bucket, String s3Key) {
         try {
-            return s3Client.headObject(HeadObjectRequest.builder()
-                            .bucket(bucket)
-                            .key(s3Key)
-                            .build())
-                    .hasMetadata();
+            s3Client.headObject(HeadObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(s3Key)
+                    .build());
+            return true;
         } catch (NoSuchKeyException e) {
             return false;
         } catch (RuntimeException e) {

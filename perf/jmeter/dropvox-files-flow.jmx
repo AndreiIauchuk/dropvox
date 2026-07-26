@@ -50,8 +50,8 @@
     </TestPlan>
     <hashTree>
       <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Request Defaults">
-        <intProp name="HTTPSampler.connect_timeout">30000</intProp>
-        <intProp name="HTTPSampler.response_timeout">30000</intProp>
+        <intProp name="HTTPSampler.connect_timeout">20000</intProp>
+        <intProp name="HTTPSampler.response_timeout">20000</intProp>
         <stringProp name="HTTPSampler.domain">${host}</stringProp>
         <stringProp name="HTTPSampler.port">${port}</stringProp>
         <stringProp name="HTTPSampler.protocol">${protocol}</stringProp>

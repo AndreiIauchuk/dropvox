@@ -101,7 +101,7 @@ class IntegrationTest {
         createS3Bucket(config);
 
         pool = PgPoolCreator.create(vertx, config);
-        FilesDAO filesDAO = new FilesDAO(pool);
+        FilesDAO filesDAO = new FilesDAO(vertx, pool);
         s3Client = S3ClientFactory.create(config);
         s3Presigner = S3PresignerFactory.create(config);
         S3ObjectExistenceChecker s3ObjectExistenceChecker = new S3ObjectExistenceChecker(s3Client);

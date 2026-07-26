@@ -35,7 +35,7 @@ class FilesDAOTest {
 
         vertx = Vertx.vertx();
         pool = PgPoolCreator.create(vertx, config);
-        filesDAO = new FilesDAO(pool);
+        filesDAO = new FilesDAO(vertx, pool);
     }
 
     @BeforeEach
