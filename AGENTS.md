@@ -45,4 +45,7 @@
 - When changing file lifecycle logic, update both the DAO/state handling and the metadata integration test.
 - When adding config, support both properties-file keys and env-var override form because startup code auto-maps env vars.
 - Do not silently “upgrade” auth assumptions: `AuthMain` and gateway `AuthServiceClient.validateToken()` are intentionally stubbed today and affect local development behavior.
-
+- When adding new endpoints, update the OpenAPI spec.
+- When changing the flow, update the integration test to cover the updated flow. 
+- When changing the flow, update the jmeter plan in 'perf/jmeter/dropvox-files-flow.jmx' to cover the updated flow.
+- When changing the flow, update the diagrams in 'diagrams' folder to cover the updated flow.
