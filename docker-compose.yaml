@@ -53,7 +53,7 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - dropvox-auth
+#      - dropvox-auth
       - dropvox-metadata
     networks:
       - dropvox-net
@@ -63,25 +63,25 @@ services:
       timeout: 5s
       retries: 5
 
-  dropvox-auth:
-    build:
-      context: .
-      dockerfile: ./dropvox-auth/Dockerfile
-    container_name: dropvox-auth
-    environment:
-      SERVER_PORT: 8081
-    ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - dropvox-net
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8081/health/live" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+#  dropvox-auth:
+#    build:
+#      context: .
+#      dockerfile: ./dropvox-auth/Dockerfile
+#    container_name: dropvox-auth
+#    environment:
+#      SERVER_PORT: 8081
+#    ports:
+#      - "8081:8081"
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#    networks:
+#      - dropvox-net
+#    healthcheck:
+#      test: [ "CMD", "curl", "-f", "http://localhost:8081/health/live" ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
 
   dropvox-metadata:
     build:
