@@ -10,47 +10,37 @@ import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.http.HttpStatusCode;
 
 /**
- * Handles GET /files/:id requests.
+ * Handles GET /files/:fileId/status requests.
  */
-public class FileDownloadHandler implements Handler<RoutingContext> {
-    private static final Logger log = LoggerFactory.getLogger(FileDownloadHandler.class);
+public class FileUploadStatusHandler implements Handler<RoutingContext> {
+    private static final Logger log = LoggerFactory.getLogger(FileUploadStatusHandler.class);
 
     private final AuthServiceClient authServiceClient;
     private final MetadataServiceClient metadataServiceClient;
 
-    public FileDownloadHandler(
+    public FileUploadStatusHandler(
             AuthServiceClient authServiceClient,
-            MetadataServiceClient metadataServiceClient) {
+            MetadataServiceClient metadataServiceClient
+    ) {
         this.authServiceClient = authServiceClient;
         this.metadataServiceClient = metadataServiceClient;
     }
 
     @Override
     public void handle(RoutingContext ctx) {
-        //String authHeader = ctx.request().getHeader("Authorization");
-        // if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-        // ctx.response().setStatusCode(401).end("Missing or invalid token");
-        // return;
-        // }
-        // String token = authHeader.substring(7);
-
         String fileId = ctx.pathParam("fileId");
 
         authServiceClient.validateToken("token")
                 .compose(userId -> {
-                    log.info("Fetching metadata for fileId={}, userId={}", fileId, userId);
-                    return metadataServiceClient.getFileMetadata(fileId, userId);
+                    log.info("Fetching upload status for fileId={}, userId={}", fileId, userId);
+                    return metadataServiceClient.getFileUploadStatus(fileId, userId);
                 })
-                .onSuccess(metadata -> {
-                    log.info("Retrieved metadata successfully for fileId={}, userId={}",
-                            metadata.getString("fileId"), metadata.getString("ownerId"));
-                    ctx.response()
-                            .setStatusCode(200)
-                            .putHeader("Content-Type", "application/json")
-                            .end(metadata.toBuffer());
-                })
+                .onSuccess(status -> ctx.response()
+                        .setStatusCode(HttpStatusCode.OK)
+                        .putHeader("Content-Type", "application/json")
+                        .end(status.toBuffer()))
                 .onFailure(err -> {
-                    log.error("Failed to retrieve file metadata", err);
+                    log.error("Failed to retrieve upload status", err);
                     int statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
                     if (err instanceof MetadataServiceException metadataServiceException) {
                         statusCode = metadataServiceException.getStatusCode();
@@ -59,3 +49,4 @@ public class FileDownloadHandler implements Handler<RoutingContext> {
                 });
     }
 }
+

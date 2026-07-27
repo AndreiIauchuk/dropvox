@@ -2,7 +2,9 @@ package com.iovchukandrew.dropvox.gateway.server;
 
 import com.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
 import com.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
+import com.iovchukandrew.dropvox.gateway.client.MetadataServiceException;
 import io.vertx.core.Handler;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,16 +38,21 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                     log.info("Completing upload for fileId={}, userId={}", fileId, userId);
                     return metadataServiceClient.completeFileUpload(fileId, userId);
                 })
-                .onSuccess(metadata -> {
-                    log.info("Upload completed successfully for fileId={}", fileId);
+                .onSuccess(acceptedPayload -> {
+                    log.info("Upload completion accepted for fileId={}", fileId);
+                    JsonObject response = acceptedPayload.copy().put("statusUrl", "/files/" + fileId + "/status");
                     ctx.response()
-                            .setStatusCode(HttpStatusCode.OK)
+                            .setStatusCode(HttpStatusCode.ACCEPTED)
                             .putHeader("Content-Type", "application/json")
-                            .end(metadata.toBuffer());
+                            .end(response.toBuffer());
                 })
                 .onFailure(err -> {
                     log.error("Failed to complete upload", err);
-                    ctx.response().setStatusCode(HttpStatusCode.INTERNAL_SERVER_ERROR).end(err.getMessage());
+                    int statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+                    if (err instanceof MetadataServiceException metadataServiceException) {
+                        statusCode = metadataServiceException.getStatusCode();
+                    }
+                    ctx.response().setStatusCode(statusCode).end(err.getMessage());
                 });
     }
 }

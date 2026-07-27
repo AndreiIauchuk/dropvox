@@ -53,6 +53,8 @@ public class Server extends VerticleBase {
 
         router.get("/files/:fileId")
                 .handler(new FileDownloadHandler(filesDAO, s3PresignedUrlGenerator));
+        router.get("/files/:fileId/status")
+                .handler(new FileUploadStatusHandler(filesDAO));
         router.post("/files/init")
                 .handler(new FileUploadInitHandler(filesDAO, s3PresignedUrlGenerator, bucketName));
         router.post("/files/complete/:fileId")

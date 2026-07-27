@@ -61,18 +61,56 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Upload marked as complete",
+          "202": {
+            "description": "Upload completion accepted and processing asynchronously",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileMetadata"
+                  "$ref": "#/components/schemas/FileUploadCompletionAcceptedResponse"
                 }
               }
             }
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/files/{fileId}/status": {
+      "get": {
+        "operationId": "getFileUploadStatus",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Fetch current file upload status",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/FileId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current upload status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
@@ -106,6 +144,9 @@
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
           }
@@ -129,6 +170,16 @@
     "responses": {
       "BadRequest": {
         "description": "Invalid or missing request data",
+        "content": {
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Requested file was not found",
         "content": {
           "text/plain": {
             "schema": {
@@ -178,6 +229,7 @@
           "size",
           "contentType",
           "ownerId",
+          "status",
           "bucket",
           "s3Key",
           "uploadedAt"
@@ -200,6 +252,13 @@
           "ownerId": {
             "type": "string",
             "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "UPLOADED"
+            ]
           },
           "bucket": {
             "type": "string"
@@ -254,6 +313,36 @@
             }
           }
         ]
+      },
+      "FileUploadStatusResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/FileMetadata"
+          }
+        ]
+      },
+      "FileUploadCompletionAcceptedResponse": {
+        "type": "object",
+        "required": [
+          "fileId",
+          "status",
+          "statusUrl"
+        ],
+        "properties": {
+          "fileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROCESSING"
+            ]
+          },
+          "statusUrl": {
+            "type": "string"
+          }
+        }
       }
     }
   }

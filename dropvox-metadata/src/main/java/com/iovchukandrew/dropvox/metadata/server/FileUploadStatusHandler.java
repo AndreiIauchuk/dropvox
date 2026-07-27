@@ -3,7 +3,6 @@ package com.iovchukandrew.dropvox.metadata.server;
 import com.iovchukandrew.dropvox.metadata.db.FileMetadataInvariantViolationException;
 import com.iovchukandrew.dropvox.metadata.db.FileMetadataNotFoundException;
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
-import com.iovchukandrew.dropvox.metadata.s3.S3PresignedUrlGenerator;
 import io.vertx.core.Handler;
 import io.vertx.ext.web.RoutingContext;
 import org.slf4j.Logger;
@@ -16,20 +15,15 @@ import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 
 /**
- * Handles GET /files/:id requests.
+ * Handles GET /files/:fileId/status requests.
  */
-public class FileDownloadHandler implements Handler<RoutingContext> {
-    private static final Logger log = LoggerFactory.getLogger(FileDownloadHandler.class);
+public class FileUploadStatusHandler implements Handler<RoutingContext> {
+    private static final Logger log = LoggerFactory.getLogger(FileUploadStatusHandler.class);
 
     private final FilesDAO filesDAO;
-    private final S3PresignedUrlGenerator s3PresignedUrlGenerator;
 
-    public FileDownloadHandler(
-            FilesDAO filesDAO,
-            S3PresignedUrlGenerator s3PresignedUrlGenerator
-    ) {
+    public FileUploadStatusHandler(FilesDAO filesDAO) {
         this.filesDAO = filesDAO;
-        this.s3PresignedUrlGenerator = s3PresignedUrlGenerator;
     }
 
     @Override
@@ -40,21 +34,13 @@ public class FileDownloadHandler implements Handler<RoutingContext> {
         UUID fileUuid = UuidParser.parsePathParam(ctx, "fileId");
         if (fileUuid == null) return;
 
-        filesDAO.findFileByIdAndOwner(fileUuid, userUuid)
-                .map(metadata -> {
-                    String presignedUrl = s3PresignedUrlGenerator.generateGetUrl(
-                            metadata.getString("bucket"),
-                            metadata.getString("s3Key")
-                    );
-                    metadata.put("downloadUrl", presignedUrl);
-                    return metadata;
-                })
+        filesDAO.findFileByIdAndOwnerAnyStatus(fileUuid, userUuid)
                 .onSuccess(metadata -> ctx.response()
                         .setStatusCode(HttpStatusCode.OK)
                         .putHeader("Content-Type", "application/json")
                         .end(metadata.toBuffer()))
                 .onFailure(err -> {
-                    log.error("Failed to retrieve a presignedUrl for file downloading", err);
+                    log.error("Failed to retrieve upload status", err);
                     int statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
                     if (err instanceof FileMetadataInvariantViolationException) {
                         statusCode = HTTP_CONFLICT;
@@ -65,3 +51,4 @@ public class FileDownloadHandler implements Handler<RoutingContext> {
                 });
     }
 }
+

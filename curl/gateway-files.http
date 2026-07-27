@@ -24,11 +24,15 @@ Content-Type: application/octet-stream
 
 < ./Engine.ini
 
-### 3) Mark upload complete in metadata service
+### 3) Request async upload completion (returns 202 Accepted)
 POST {{api}}/files/complete/{{fileId}}
 Accept: application/json
 
-### 4) Verify metadata
+### 4) Poll upload status until it becomes UPLOADED
+GET {{api}}/files/{{fileId}}/status
+Accept: application/json
+
+### 5) Fetch download metadata
 GET {{api}}/files/{{fileId}}
 Accept: application/json
 
@@ -36,6 +40,6 @@ Accept: application/json
     client.global.set("downloadUrl", response.body.downloadUrl);
 %}
 
-### 5) Download uploaded file
+### 6) Download uploaded file
 GET {{downloadUrl}}
 

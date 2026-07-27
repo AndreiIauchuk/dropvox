@@ -54,13 +54,15 @@ public class Server extends VerticleBase {
                 config.getInteger("metadata.service.port"));
 
         FileDownloadHandler fileDownloadHandler = new FileDownloadHandler(authServiceClient, metadataServiceClient);
+        FileUploadStatusHandler fileUploadStatusHandler =
+                new FileUploadStatusHandler(authServiceClient, metadataServiceClient);
         FileUploadInitHandler fileUploadInitHandler = new FileUploadInitHandler(authServiceClient, metadataServiceClient);
         FileUploadCompleteHandler fileUploadCompleteHandler =
                 new FileUploadCompleteHandler(authServiceClient, metadataServiceClient);
 
         HttpServerOptions serverOptions = new HttpServerOptions().setHttp2ClearTextEnabled(false);
         int port = config.getInteger("server.port");
-        return buildRouter(fileDownloadHandler, fileUploadInitHandler, fileUploadCompleteHandler)
+        return buildRouter(fileDownloadHandler, fileUploadStatusHandler, fileUploadInitHandler, fileUploadCompleteHandler)
                 .compose(router -> vertx.createHttpServer(serverOptions)
                         .requestHandler(router)
                         .listen(port))
@@ -70,6 +72,7 @@ public class Server extends VerticleBase {
 
     private Future<Router> buildRouter(
             FileDownloadHandler fileDownloadHandler,
+            FileUploadStatusHandler fileUploadStatusHandler,
             FileUploadInitHandler fileUploadInitHandler,
             FileUploadCompleteHandler fileUploadCompleteHandler
     ) {
@@ -96,6 +99,7 @@ public class Server extends VerticleBase {
                     routerBuilder.rootHandler(BodyHandler.create());
 
                     mountOperation(routerBuilder, "downloadFile", fileDownloadHandler);
+                    mountOperation(routerBuilder, "getFileUploadStatus", fileUploadStatusHandler);
                     mountOperation(routerBuilder, "initFileUpload", fileUploadInitHandler);
                     mountOperation(routerBuilder, "completeFileUpload", fileUploadCompleteHandler);
 
