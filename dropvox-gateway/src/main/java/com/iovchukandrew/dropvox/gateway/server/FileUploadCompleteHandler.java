@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.http.HttpStatusCode;
 
+import static com.iovchukandrew.dropvox.gateway.server.FileUploadCompletionStatus.PROCESSING;
+
 /**
  * Handles POST /files/complete/:fileId requests.
  */
@@ -45,7 +47,7 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                         return uploadCompletionRequestedPublisher.publish(fileId, userId, traceId)
                                 .map(new JsonObject()
                                         .put("fileId", fileId)
-                                        .put("status", "PROCESSING"));
+                                        .put("status", PROCESSING.name()));
                     }
 
                     return metadataServiceClient.completeFileUpload(fileId, userId);

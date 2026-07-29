@@ -20,7 +20,8 @@ public class FilesDAO {
 
     public enum FileStatus {
         PENDING,
-        UPLOADED
+        UPLOADED,
+        FAILED
     }
 
     private final Vertx vertx;
@@ -133,12 +134,12 @@ public class FilesDAO {
                 filename, size, contentType, ownerId, bucket);
 
         String sql = "INSERT INTO files (id, name, size, content_type, owner_id, status, bucket, s3_key) " +
-                "VALUES ($1, $2, $3, $4, $5, 'PENDING', $6, $7) " +
+                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) " +
                 "RETURNING id, name, size, content_type, owner_id, status, bucket, s3_key, created_at, updated_at";
 
         UUID fileId = UUID.randomUUID();
         return pool.preparedQuery(sql)
-                .execute(Tuple.of(fileId, filename, size, contentType, ownerId, bucket, s3Key))
+                .execute(Tuple.of(fileId, filename, size, contentType, ownerId, FileStatus.PENDING.name(), bucket, s3Key))
                 .compose(rows -> {
                     if (rows.size() != 1) {
                         return Future.failedFuture("Expected to insert single pending file metadata, but got " + rows.size());
@@ -159,12 +160,12 @@ public class FilesDAO {
         log.info("Updating file metadata of uploaded file by {fileId={}, ownerId={}}",
                 fileId, ownerId);
 
-        String sql = "UPDATE files SET status = 'UPLOADED' " +
-                "WHERE id = $1 AND owner_id = $2 AND status = 'PENDING' " +
+        String sql = "UPDATE files SET status = $3 " +
+                "WHERE id = $1 AND owner_id = $2 AND status = $4 " +
                 "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, status, created_at, updated_at";
 
         return pool.preparedQuery(sql)
-                .execute(Tuple.of(fileId, ownerId))
+                .execute(Tuple.of(fileId, ownerId, FileStatus.UPLOADED.name(), FileStatus.PENDING.name()))
                 .compose(rows -> {
                     if (rows.size() == 0) {
                         return Future.failedFuture(new FileMetadataNotFoundException(
@@ -185,9 +186,9 @@ public class FilesDAO {
     public Future<JsonObject> confirmPendingFileUploadByObjectLocation(String bucket, String s3Key) {
         log.info("Updating pending file metadata by object location {bucket={}, s3Key={}}", bucket, s3Key);
 
-        String sql = "SELECT id, owner_id FROM files WHERE bucket = $1 AND s3_key = $2 AND status = 'PENDING'";
+        String sql = "SELECT id, owner_id FROM files WHERE bucket = $1 AND s3_key = $2 AND status = $3";
         return pool.preparedQuery(sql)
-                .execute(Tuple.of(bucket, s3Key))
+                .execute(Tuple.of(bucket, s3Key, FileStatus.PENDING.name()))
                 .compose(rows -> {
                     if (rows.size() == 0) {
                         return Future.failedFuture(new FileMetadataNotFoundException(
@@ -205,6 +206,32 @@ public class FilesDAO {
                     return confirmFileUpload(fileId, ownerId);
                 })
                 .onFailure(e -> log.error("Unable to update pending file metadata by object location", e));
+    }
+
+    /**
+     * Marks a pending file upload as failed when object confirmation did not succeed.
+     *
+     * @param fileId  file identifier
+     * @param ownerId file owner identifier
+     * @return Future containing updated file metadata
+     */
+    public Future<JsonObject> markPendingFileUploadAsFailed(UUID fileId, UUID ownerId) {
+        log.info("Marking pending file metadata as failed by {fileId={}, ownerId={}}", fileId, ownerId);
+
+        String sql = "UPDATE files SET status = $3 " +
+                "WHERE id = $1 AND owner_id = $2 AND status = $4 " +
+                "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, status, created_at, updated_at";
+
+        return pool.preparedQuery(sql)
+                .execute(Tuple.of(fileId, ownerId, FileStatus.FAILED.name(), FileStatus.PENDING.name()))
+                .compose(rows -> {
+                    if (rows.size() == 0) {
+                        return Future.failedFuture(new FileMetadataNotFoundException(
+                                String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
+                    }
+                    return mapRowToJsonAsync(rows.iterator().next());
+                })
+                .onFailure(e -> log.error("Unable to mark pending file metadata as failed", e));
     }
 
     private Future<JsonObject> mapRowToJsonAsync(Row row) {

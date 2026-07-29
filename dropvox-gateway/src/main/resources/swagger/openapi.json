@@ -257,7 +257,8 @@
             "type": "string",
             "enum": [
               "PENDING",
-              "UPLOADED"
+              "UPLOADED",
+              "FAILED"
             ]
           },
           "bucket": {

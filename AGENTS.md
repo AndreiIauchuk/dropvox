@@ -9,13 +9,13 @@
 - `dropvox-gateway` is the front door. It mounts handlers by OpenAPI `operationId` from `dropvox-gateway/src/main/resources/swagger/openapi.json` inside `dropvox-gateway/src/main/java/com/iovchukandrew/dropvox/gateway/server/Server.java`.
 - Gateway handlers should stay thin: they authenticate via `AuthServiceClient` and proxy business operations through `MetadataServiceClient`.
 - `dropvox-metadata` owns file lifecycle state and presigned URLs. Its HTTP routes are wired directly in `dropvox-metadata/src/main/java/com/iovchukandrew/dropvox/metadata/server/Server.java`.
-- Current upload flow is: `POST /files/init` -> DB row in `PENDING` -> client uploads directly to MinIO via presigned PUT -> `POST /files/complete/:fileId` verifies object existence -> DB row becomes `UPLOADED` -> `GET /files/:fileId` returns presigned GET URL.
+- Current upload flow is: `POST /files/init` -> DB row in `PENDING` -> client uploads directly to MinIO via presigned PUT -> `POST /files/complete/:fileId` returns `202 PROCESSING` and async verification starts -> DB row becomes `UPLOADED` on success or `FAILED` on terminal verification miss -> `GET /files/:fileId/status` exposes lifecycle state.
 - The best executable reference for the full flow is `dropvox-metadata/src/test/java/com/iovchukandrew/dropvox/metadata/IntegrationTest.java`.
 
 ## Data and storage conventions
 - Metadata service runs Flyway on startup (`MetadataMain` -> `FlywayRunner`) before opening the HTTP server.
 - PostgreSQL schema defaults to `metadata`; `PgPoolCreator` also sets PostgreSQL `search_path` from `db.scheme`, so SQL intentionally uses unqualified table names like `files`.
-- Migration `dropvox-metadata/src/main/resources/db/migration/V1__create_files_table.sql` defines only two file states: `PENDING` and `UPLOADED`.
+- Lifecycle states are `PENDING`, `UPLOADED`, and `FAILED` (`dropvox-metadata/src/main/resources/db/migration/V1__create_files_table.sql` + `dropvox-metadata/src/main/resources/db/migration/V2__add_failed_upload_status.sql`).
 - S3 object keys are intentionally user-scoped and file-scoped: `users/{userUuid}/files/{fileUuid}/{sanitizedFilename}` in metadata `FileUploadInitHandler`.
 - API JSON naming is not raw DB naming: DAO responses use keys like `fileId`, `ownerId`, `s3Key`, `uploadedAt`, `lastModifiedAt` (`FilesDAO.mapRowToJson`).
 
@@ -28,6 +28,7 @@
 ## HTTP and cross-service patterns
 - Trace propagation matters here: services accept or generate `X-Trace-Id`, store it in MDC, and echo it back in responses; gateway forwards it downstream in `MetadataServiceClient.withTrace(...)`.
 - Metadata expects user identity in `X-User-Id` and validates UUIDs before processing requests.
+- `PROCESSING` is an API acceptance status for `POST /files/complete/:fileId`; persisted lifecycle states are `PENDING`/`UPLOADED`/`FAILED` and are observed via `GET /files/:fileId/status`.
 - Gateway request validation is OpenAPI-driven. If you add or rename an endpoint, update both the OpenAPI spec and the `operationId` mounting in gateway `Server.java`.
 - Gateway converts OpenAPI validation failures to `400`; other uncaught failures generally surface as `500`.
 
@@ -49,3 +50,4 @@
 - When changing the flow, update the integration test to cover the updated flow. 
 - When changing the flow, update the jmeter plan in 'perf/jmeter/dropvox-files-flow.jmx' to cover the updated flow.
 - When changing the flow, update the diagrams in 'diagrams' folder to cover the updated flow.
+- When changing lifecycle/status semantics or request flow, update `AGENTS.md` in the same PR so agent guidance stays in sync with the implementation.

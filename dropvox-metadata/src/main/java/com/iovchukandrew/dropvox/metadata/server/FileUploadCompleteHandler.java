@@ -10,6 +10,8 @@ import software.amazon.awssdk.http.HttpStatusCode;
 
 import java.util.UUID;
 
+import static com.iovchukandrew.dropvox.metadata.server.FileUploadCompletionStatus.PROCESSING;
+
 /**
  * Handles POST /files/complete/:fileId requests.
  */
@@ -32,7 +34,7 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
 
         JsonObject acceptedPayload = new JsonObject()
                 .put("fileId", fileUuid)
-                .put("status", "PROCESSING");
+                .put("status", PROCESSING.name());
 
         ctx.response()
                 .setStatusCode(HttpStatusCode.ACCEPTED)
@@ -40,15 +42,8 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                 .end(acceptedPayload.toBuffer());
 
         uploadCompletionProcessor.processRequestedCompletion(fileUuid, userUuid)
-                .onSuccess(ignored -> log.info("Upload completion finished for fileId={}, userId={}", fileUuid, userUuid))
-                .onFailure(err -> {
-                    if (err instanceof FileNotYetUploadedException) {
-                        log.warn("Upload completion failed because object is still missing for fileId={}, userId={}",
-                                fileUuid, userUuid);
-                        return;
-                    }
-                    log.error("Unexpected failure during async upload completion for fileId={}, userId={}",
-                            fileUuid, userUuid, err);
-                });
+                .onSuccess(ignored -> log.info("Upload completion processing finished for fileId={}, userId={}", fileUuid, userUuid))
+                .onFailure(err -> log.error("Unexpected failure during async upload completion for fileId={}, userId={}",
+                        fileUuid, userUuid, err));
     }
 }

@@ -1,7 +1,6 @@
 package com.iovchukandrew.dropvox.metadata.kafka;
 
 import com.iovchukandrew.dropvox.metadata.processing.UploadCompletionProcessor;
-import com.iovchukandrew.dropvox.metadata.server.FileNotYetUploadedException;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -102,25 +101,16 @@ public class FileUploadCompletionRequestedConsumer {
 
         uploadCompletionProcessor.processRequestedCompletion(fileUuid, userUuid)
                 .onSuccess(ignored -> log.info(
-                        "Upload completion confirmed via Kafka event for fileId={}, userId={}, traceId={}",
+                        "Upload completion processing finished via Kafka event for fileId={}, userId={}, traceId={}",
                         fileId,
                         userId,
                         traceId
                 ))
-                .onFailure(err -> {
-                    if (err instanceof FileNotYetUploadedException) {
-                        log.warn("Upload completion request could not be confirmed yet for fileId={}, userId={}, traceId={}",
-                                fileId,
-                                userId,
-                                traceId);
-                        return;
-                    }
-                    log.error("Failed to process upload completion Kafka event for fileId={}, userId={}, traceId={}",
-                            fileId,
-                            userId,
-                            traceId,
-                            err);
-                });
+                .onFailure(err -> log.error("Failed to process upload completion Kafka event for fileId={}, userId={}, traceId={}",
+                        fileId,
+                        userId,
+                        traceId,
+                        err));
     }
 }
 

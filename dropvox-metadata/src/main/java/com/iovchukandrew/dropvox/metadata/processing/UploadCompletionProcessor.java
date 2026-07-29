@@ -3,7 +3,6 @@ package com.iovchukandrew.dropvox.metadata.processing;
 import com.iovchukandrew.dropvox.metadata.db.FileMetadataNotFoundException;
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
-import com.iovchukandrew.dropvox.metadata.server.FileNotYetUploadedException;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -43,7 +42,7 @@ public class UploadCompletionProcessor {
                 .compose(metadata -> checkObjectExistsWithRetry(metadata, 1))
                 .compose(objectExists -> {
                     if (!objectExists) {
-                        return Future.failedFuture(new FileNotYetUploadedException());
+                        return filesDAO.markPendingFileUploadAsFailed(fileUuid, userUuid).mapEmpty();
                     }
                     return filesDAO.confirmFileUpload(fileUuid, userUuid).mapEmpty();
                 });

@@ -1,0 +1,1 @@
+ALTER TYPE metadata.upload_status ADD VALUE IF NOT EXISTS 'FAILED';

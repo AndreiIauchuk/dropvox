@@ -205,7 +205,7 @@ class IntegrationTest {
     }
 
     @Test
-    void shouldRejectCompleteWhenObjectWasNotUploaded() throws Exception {
+    void shouldMarkFileAsFailedWhenObjectWasNotUploaded() throws Exception {
         UUID userId = UUID.randomUUID();
 
         HttpResponse<String> initResponse = postJson(
@@ -231,10 +231,8 @@ class IntegrationTest {
         assertThat(completeBody.getString("fileId")).isEqualTo(fileId.toString());
         assertThat(completeBody.getString("status")).isEqualTo("PROCESSING");
 
-        Thread.sleep(1500);
-
-        JsonObject fileAfterRejectedComplete = fetchFileRecord(fileId, userId);
-        assertThat(fileAfterRejectedComplete.getString("status")).isEqualTo("PENDING");
+        JsonObject fileAfterRejectedComplete = waitForStatus(fileId, userId, "FAILED", Duration.ofSeconds(5));
+        assertThat(fileAfterRejectedComplete.getString("status")).isEqualTo("FAILED");
     }
 
     @Test

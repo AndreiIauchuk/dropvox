@@ -29,7 +29,11 @@ gate --> user: 202 Accepted + statusUrl
 |||
 kafka -> metadata: consume completion request event
 metadata -> metadata: check object exists in MinIO (retry)
-metadata -> db: UPDATE files SET status='UPLOADED'
+alt object found
+  metadata -> db: UPDATE files SET status='UPLOADED'
+else object not found after retries
+  metadata -> db: UPDATE files SET status='FAILED'
+end
 metadata --> kafka: ack processing (offset commit)
 |||
 group Optional: MinIO event-driven auto-complete
@@ -40,7 +44,7 @@ end
 |||
 user -> gate: GET /files/{fileId}/status (poll)
 gate -> metadata: GET /files/{fileId}/status
-metadata --> gate: status=PENDING|UPLOADED
+metadata --> gate: status=PENDING|UPLOADED|FAILED
 gate --> user: status response
 |||
 @enduml
