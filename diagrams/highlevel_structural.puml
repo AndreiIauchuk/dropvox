@@ -5,15 +5,18 @@ actor "User" as user
 node "API Gateway" as gate
 node "Auth Service" as auth
 node "Metadata Service" as metadata
+queue "Kafka" as kafka
 database "PostgreSQL (shards)" as db
-database "Redis (cache)" as redis
 storage "MinIO" as s3
 
 user --> gate
 user --> s3
 gate --> auth : JWT validation
 gate --> metadata : download/upload
+gate --> kafka : upload completion events
+kafka --> metadata : completion requests
+kafka --> metadata : MinIO object events
 metadata --> db : CRUD
-metadata --> redis : cache
 metadata -> s3
+s3 --> kafka : ObjectCreated notifications
 @enduml

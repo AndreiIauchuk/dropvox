@@ -9,7 +9,6 @@ docker compose up --build
 jmeter
 ```
 
-
 Or run the test headlessly:
 
 ```powershell

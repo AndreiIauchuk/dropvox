@@ -175,6 +175,38 @@ public class FilesDAO {
                 .onFailure(e -> log.error("Unable to update a file metadata of uploaded file", e));
     }
 
+    /**
+     * Confirms upload for a pending file matched by bucket and object key.
+     *
+     * @param bucket storage bucket name
+     * @param s3Key  object key in storage
+     * @return Future containing updated file metadata
+     */
+    public Future<JsonObject> confirmPendingFileUploadByObjectLocation(String bucket, String s3Key) {
+        log.info("Updating pending file metadata by object location {bucket={}, s3Key={}}", bucket, s3Key);
+
+        String sql = "SELECT id, owner_id FROM files WHERE bucket = $1 AND s3_key = $2 AND status = 'PENDING'";
+        return pool.preparedQuery(sql)
+                .execute(Tuple.of(bucket, s3Key))
+                .compose(rows -> {
+                    if (rows.size() == 0) {
+                        return Future.failedFuture(new FileMetadataNotFoundException(
+                                String.format("No pending file metadata was found by {bucket=%s, s3Key=%s}", bucket, s3Key)));
+                    }
+                    if (rows.size() > 1) {
+                        return Future.failedFuture(new FileMetadataInvariantViolationException(
+                                String.format("Expected exactly 1 pending file by {bucket=%s, s3Key=%s}, but got %s",
+                                        bucket, s3Key, rows.size())));
+                    }
+
+                    Row row = rows.iterator().next();
+                    UUID fileId = row.getUUID("id");
+                    UUID ownerId = row.getUUID("owner_id");
+                    return confirmFileUpload(fileId, ownerId);
+                })
+                .onFailure(e -> log.error("Unable to update pending file metadata by object location", e));
+    }
+
     private Future<JsonObject> mapRowToJsonAsync(Row row) {
         return vertx.executeBlocking(() -> mapRowToJson(row), false);
     }

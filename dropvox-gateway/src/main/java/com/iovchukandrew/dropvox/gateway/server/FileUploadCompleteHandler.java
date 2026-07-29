@@ -3,6 +3,7 @@ package com.iovchukandrew.dropvox.gateway.server;
 import com.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
 import com.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
 import com.iovchukandrew.dropvox.gateway.client.MetadataServiceException;
+import com.iovchukandrew.dropvox.gateway.kafka.UploadCompletionRequestedPublisher;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -18,13 +19,16 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
 
     private final AuthServiceClient authServiceClient;
     private final MetadataServiceClient metadataServiceClient;
+    private final UploadCompletionRequestedPublisher uploadCompletionRequestedPublisher;
 
     public FileUploadCompleteHandler(
             AuthServiceClient authServiceClient,
-            MetadataServiceClient metadataServiceClient
+            MetadataServiceClient metadataServiceClient,
+            UploadCompletionRequestedPublisher uploadCompletionRequestedPublisher
     ) {
         this.authServiceClient = authServiceClient;
         this.metadataServiceClient = metadataServiceClient;
+        this.uploadCompletionRequestedPublisher = uploadCompletionRequestedPublisher;
     }
 
     @Override
@@ -32,10 +36,18 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
         //Auth here
 
         String fileId = ctx.pathParam("fileId");
+        String traceId = ctx.get("traceId");
 
         authServiceClient.validateToken("token")
                 .compose(userId -> {
                     log.info("Completing upload for fileId={}, userId={}", fileId, userId);
+                    if (uploadCompletionRequestedPublisher != null) {
+                        return uploadCompletionRequestedPublisher.publish(fileId, userId, traceId)
+                                .map(new JsonObject()
+                                        .put("fileId", fileId)
+                                        .put("status", "PROCESSING"));
+                    }
+
                     return metadataServiceClient.completeFileUpload(fileId, userId);
                 })
                 .onSuccess(acceptedPayload -> {

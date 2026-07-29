@@ -3,6 +3,7 @@ package com.iovchukandrew.dropvox.gateway.server;
 import com.iovchukandrew.dropvox.gateway.client.AuthServiceClient;
 import com.iovchukandrew.dropvox.gateway.client.HttpHeader;
 import com.iovchukandrew.dropvox.gateway.client.MetadataServiceClient;
+import com.iovchukandrew.dropvox.gateway.kafka.UploadCompletionRequestedPublisher;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.VerticleBase;
@@ -35,6 +36,7 @@ public class Server extends VerticleBase {
 
     private final WebClient webClient;
     private final JsonObject config;
+    private UploadCompletionRequestedPublisher uploadCompletionRequestedPublisher;
 
     public Server(WebClient webClient, JsonObject config) {
         this.webClient = webClient;
@@ -53,12 +55,20 @@ public class Server extends VerticleBase {
                 config.getString("metadata.service.host"),
                 config.getInteger("metadata.service.port"));
 
+        if (config.getBoolean("kafka.enabled", false)) {
+            uploadCompletionRequestedPublisher = UploadCompletionRequestedPublisher.create(vertx, config);
+        }
+
         FileDownloadHandler fileDownloadHandler = new FileDownloadHandler(authServiceClient, metadataServiceClient);
         FileUploadStatusHandler fileUploadStatusHandler =
                 new FileUploadStatusHandler(authServiceClient, metadataServiceClient);
         FileUploadInitHandler fileUploadInitHandler = new FileUploadInitHandler(authServiceClient, metadataServiceClient);
         FileUploadCompleteHandler fileUploadCompleteHandler =
-                new FileUploadCompleteHandler(authServiceClient, metadataServiceClient);
+                new FileUploadCompleteHandler(
+                        authServiceClient,
+                        metadataServiceClient,
+                        uploadCompletionRequestedPublisher
+                );
 
         HttpServerOptions serverOptions = new HttpServerOptions().setHttp2ClearTextEnabled(false);
         int port = config.getInteger("server.port");
@@ -68,6 +78,16 @@ public class Server extends VerticleBase {
                         .listen(port))
                 .onSuccess(server -> log.info("Server started on port {}", server.actualPort()))
                 .onFailure(e -> log.error("Failed to start gateway server", e));
+    }
+
+    @Override
+    public Future<?> stop() {
+        if (uploadCompletionRequestedPublisher == null) {
+            return Future.succeededFuture();
+        }
+
+        return uploadCompletionRequestedPublisher.close()
+                .onFailure(err -> log.error("Failed to close Kafka upload completion publisher", err));
     }
 
     private Future<Router> buildRouter(
