@@ -51,3 +51,4 @@
 - When changing the flow, update the jmeter plan in 'perf/jmeter/dropvox-files-flow.jmx' to cover the updated flow.
 - When changing the flow, update the diagrams in 'diagrams' folder to cover the updated flow.
 - When changing lifecycle/status semantics or request flow, update `AGENTS.md` in the same PR so agent guidance stays in sync with the implementation.
+- For any meaningful project update (APIs, flows, setup, testing, architecture, or observability), review and update `README.md`.
