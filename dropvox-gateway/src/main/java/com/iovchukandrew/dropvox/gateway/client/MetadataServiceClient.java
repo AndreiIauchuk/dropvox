@@ -37,6 +37,20 @@ public class MetadataServiceClient {
     }
 
     /**
+     * GET current file upload status from Metadata Service.
+     *
+     * @param fileId the file identifier
+     * @param userId the user identifier
+     * @return Future containing metadata JSON with current status
+     */
+    public Future<JsonObject> getFileUploadStatus(String fileId, String userId) {
+        return withTrace(webClient.get(port, host, "/files/" + fileId + "/status"))
+                .putHeader(HttpHeader.USER_ID, userId)
+                .send()
+                .transform(ar -> handleJsonResponse(ar, "GET /files/" + fileId + "/status"));
+    }
+
+    /**
      * POST init file upload in Metadata Service.
      *
      * @param request upload init payload
@@ -51,11 +65,11 @@ public class MetadataServiceClient {
     }
 
     /**
-     * POST completes file upload in Metadata Service.
+     * POST requests upload completion in Metadata Service.
      *
      * @param fileId the file identifier
      * @param userId the user identifier
-     * @return Future containing updated metadata JSON
+     * @return Future containing accepted processing payload
      */
     public Future<JsonObject> completeFileUpload(String fileId, String userId) {
         return withTrace(webClient.post(port, host, "/files/complete/" + fileId))

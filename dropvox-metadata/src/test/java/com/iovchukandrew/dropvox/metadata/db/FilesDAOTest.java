@@ -173,6 +173,70 @@ class FilesDAOTest {
                 .hasMessage("No pending file metadata was found by {fileId=%s, ownerId=%s}".formatted(fileId, ownerId));
     }
 
+    @Test
+    void shouldMarkPendingFileUploadAsFailed() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        JsonObject pendingFile = filesDAO.createPendingFile(
+                        "voice.wav",
+                        12345L,
+                        "audio/wav",
+                        ownerId,
+                        "dropvox-files",
+                        "users/" + ownerId + "/voice.wav"
+                )
+                .await(10, TimeUnit.SECONDS);
+        UUID fileId = UUID.fromString(pendingFile.getString("fileId"));
+
+        JsonObject failedFile = filesDAO.markPendingFileUploadAsFailed(fileId, ownerId)
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(failedFile.getString("fileId")).isEqualTo(fileId.toString());
+        assertThat(failedFile.getString("ownerId")).isEqualTo(ownerId.toString());
+        assertThat(failedFile.getString("status")).isEqualTo("FAILED");
+
+        var rows = pool.preparedQuery("SELECT status FROM files WHERE id = $1 AND owner_id = $2")
+                .execute(Tuple.of(fileId, ownerId))
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows.iterator().next().getString("status")).isEqualTo("FAILED");
+    }
+
+    @Test
+    void shouldFailToMarkFailedWhenPendingFileIsNotFound() {
+        UUID fileId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> filesDAO.markPendingFileUploadAsFailed(fileId, ownerId)
+                .await(10, TimeUnit.SECONDS))
+                .isInstanceOf(FileMetadataNotFoundException.class)
+                .hasMessage("No pending file metadata was found by {fileId=%s, ownerId=%s}".formatted(fileId, ownerId));
+    }
+
+    @Test
+    void shouldConfirmPendingFileUploadByObjectLocation() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        String bucket = "dropvox-files";
+        String s3Key = "users/" + ownerId + "/files/object-location-test.wav";
+
+        JsonObject pendingFile = filesDAO.createPendingFile(
+                        "object-location-test.wav",
+                        42L,
+                        "audio/wav",
+                        ownerId,
+                        bucket,
+                        s3Key
+                )
+                .await(10, TimeUnit.SECONDS);
+
+        JsonObject confirmedFile = filesDAO.confirmPendingFileUploadByObjectLocation(bucket, s3Key)
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(confirmedFile.getString("fileId")).isEqualTo(pendingFile.getString("fileId"));
+        assertThat(confirmedFile.getString("ownerId")).isEqualTo(ownerId.toString());
+        assertThat(confirmedFile.getString("status")).isEqualTo("UPLOADED");
+    }
+
     private static JsonObject createDbConfig() {
         return new JsonObject()
                 .put("db.host", postgres.getHost())

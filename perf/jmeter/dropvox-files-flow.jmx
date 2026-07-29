@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="DropVox Files Upload/Download flow">
-      <stringProp name="TestPlan.comments">Executes gateway upload init, MinIO upload via presigned URL, upload complete, metadata fetch, and file download.</stringProp>
+      <stringProp name="TestPlan.comments">Executes gateway upload init, MinIO upload via presigned URL, async upload complete (202), status polling until terminal state (UPLOADED/FAILED), metadata fetch, and file download.</stringProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
         <collectionProp name="Arguments.arguments">
           <elementProp name="host" elementType="Argument">
@@ -22,17 +22,17 @@
           </elementProp>
           <elementProp name="threads" elementType="Argument">
             <stringProp name="Argument.name">threads</stringProp>
-            <stringProp name="Argument.value">10000</stringProp>
+            <stringProp name="Argument.value">${__P(threads,200)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="ramp_up" elementType="Argument">
             <stringProp name="Argument.name">ramp_up</stringProp>
-            <stringProp name="Argument.value">60</stringProp>
+            <stringProp name="Argument.value">${__P(ramp_up,60)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="loops" elementType="Argument">
             <stringProp name="Argument.name">loops</stringProp>
-            <stringProp name="Argument.value">1</stringProp>
+            <stringProp name="Argument.value">${__P(loops,50)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="payload" elementType="Argument">
@@ -43,6 +43,16 @@
           <elementProp name="payload_size" elementType="Argument">
             <stringProp name="Argument.name">payload_size</stringProp>
             <stringProp name="Argument.value">22</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="max_status_polls" elementType="Argument">
+            <stringProp name="Argument.name">max_status_polls</stringProp>
+            <stringProp name="Argument.value">${__P(max_status_polls,20)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="status_poll_delay_ms" elementType="Argument">
+            <stringProp name="Argument.name">status_poll_delay_ms</stringProp>
+            <stringProp name="Argument.value">${__P(status_poll_delay_ms,1000)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
@@ -61,19 +71,6 @@
         </elementProp>
         <stringProp name="HTTPSampler.implementation"></stringProp>
       </ConfigTestElement>
-      <hashTree/>
-      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON Headers" enabled="true">
-        <collectionProp name="HeaderManager.headers">
-          <elementProp name="" elementType="Header">
-            <stringProp name="Header.name">Accept</stringProp>
-            <stringProp name="Header.value">application/json</stringProp>
-          </elementProp>
-          <elementProp name="" elementType="Header">
-            <stringProp name="Header.name">Content-Type</stringProp>
-            <stringProp name="Header.value">application/json</stringProp>
-          </elementProp>
-        </collectionProp>
-      </HeaderManager>
       <hashTree/>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Gateway File Flow Users" enabled="true">
         <stringProp name="ThreadGroup.num_threads">${threads}</stringProp>
@@ -107,6 +104,19 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Init Upload Headers" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Accept</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
           <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Init Upload 200" enabled="true">
             <collectionProp name="Asserion.test_strings">
               <stringProp name="49586">200</stringProp>
@@ -173,9 +183,18 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Complete Upload 200" enabled="true">
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Complete Upload Headers" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Accept</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Complete Upload 202" enabled="true">
             <collectionProp name="Asserion.test_strings">
-              <stringProp name="49586">200</stringProp>
+              <stringProp name="49586">202</stringProp>
             </collectionProp>
             <stringProp name="Assertion.custom_message"></stringProp>
             <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
@@ -183,7 +202,94 @@
             <intProp name="Assertion.test_type">8</intProp>
           </ResponseAssertion>
           <hashTree/>
+          <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Init Upload Status Variables" enabled="true">
+            <stringProp name="cacheKey">true</stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="script">vars.put('uploadStatus', 'PENDING')
+vars.put('statusPollCount', '0')</stringProp>
+            <stringProp name="scriptLanguage">groovy</stringProp>
+          </JSR223PostProcessor>
+          <hashTree/>
         </hashTree>
+        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="Poll Upload Status Until Terminal" enabled="true">
+          <stringProp name="WhileController.condition">${__groovy(vars.get('uploadStatus') != 'UPLOADED' &amp;&amp; vars.get('uploadStatus') != 'FAILED' &amp;&amp; ((vars.get('statusPollCount') ?: '0') as int) &lt; ((vars.get('max_status_polls') ?: '20') as int))}</stringProp>
+        </WhileController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get Upload Status" enabled="true">
+            <stringProp name="HTTPSampler.path">/files/${fileId}/status</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Status Headers" enabled="true">
+              <collectionProp name="HeaderManager.headers">
+                <elementProp name="" elementType="Header">
+                  <stringProp name="Header.name">Accept</stringProp>
+                  <stringProp name="Header.value">application/json</stringProp>
+                </elementProp>
+              </collectionProp>
+            </HeaderManager>
+            <hashTree/>
+            <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Get Upload Status 200" enabled="true">
+              <collectionProp name="Asserion.test_strings">
+                <stringProp name="49586">200</stringProp>
+              </collectionProp>
+              <stringProp name="Assertion.custom_message"></stringProp>
+              <stringProp name="Assertion.test_field">Assertion.response_code</stringProp>
+              <boolProp name="Assertion.assume_success">false</boolProp>
+              <intProp name="Assertion.test_type">8</intProp>
+            </ResponseAssertion>
+            <hashTree/>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract Upload Status" enabled="true">
+              <stringProp name="JSONPostProcessor.referenceNames">uploadStatus</stringProp>
+              <stringProp name="JSONPostProcessor.jsonPathExprs">$.status</stringProp>
+              <stringProp name="JSONPostProcessor.match_numbers">1</stringProp>
+              <stringProp name="JSONPostProcessor.defaultValues">UNKNOWN</stringProp>
+            </JSONPostProcessor>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Increment Status Poll Counter" enabled="true">
+              <stringProp name="cacheKey">true</stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="script">int current = (vars.get('statusPollCount') ?: '0') as int
+vars.put('statusPollCount', String.valueOf(current + 1))</stringProp>
+              <stringProp name="scriptLanguage">groovy</stringProp>
+            </JSR223PostProcessor>
+            <hashTree/>
+            <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Status Poll Delay" enabled="true">
+                <stringProp name="ConstantTimer.delay">${__P(status_poll_delay_ms,1000)}</stringProp>
+            </ConstantTimer>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="Assert Upload Reached Uploaded State" enabled="true">
+          <stringProp name="cacheKey">true</stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="script">
+if (vars.get('uploadStatus') == 'UPLOADED') {
+    SampleResult.setSuccessful(true)
+    SampleResult.setResponseCodeOK()
+    SampleResult.setResponseMessage('Upload status reached UPLOADED')
+} else if (vars.get('uploadStatus') == 'FAILED') {
+    SampleResult.setSuccessful(false)
+    SampleResult.setResponseCode('409')
+    SampleResult.setResponseMessage('Upload status reached FAILED')
+} else {
+    SampleResult.setSuccessful(false)
+    SampleResult.setResponseCode('412')
+    SampleResult.setResponseMessage('Upload status did not reach a terminal state within polling window')
+}
+        </stringProp>
+          <stringProp name="scriptLanguage">groovy</stringProp>
+        </JSR223Sampler>
+        <hashTree/>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get File Metadata" enabled="true">
           <stringProp name="HTTPSampler.path">/files/${fileId}</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
@@ -195,6 +301,15 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Get Metadata Headers" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Accept</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
           <ResponseAssertion guiclass="AssertionGui" testclass="ResponseAssertion" testname="Get Metadata 200" enabled="true">
             <collectionProp name="Asserion.test_strings">
               <stringProp name="49586">200</stringProp>
@@ -244,7 +359,7 @@
           </ResponseAssertion>
           <hashTree/>
         </hashTree>
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report">
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="false">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -281,7 +396,7 @@
           <stringProp name="filename"></stringProp>
         </ResultCollector>
         <hashTree/>
-        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree">
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>

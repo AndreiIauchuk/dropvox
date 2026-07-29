@@ -42,8 +42,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.iovchukandrew.dropvox.metadata.server.FileNotYetUploadedException.FILE_NOT_YET_UPLOADED_ERROR_MSG;
-import static java.net.HttpURLConnection.HTTP_CONFLICT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -175,8 +173,12 @@ class IntegrationTest {
                 serverBaseUrl + "/files/complete/" + fileId,
                 userId
         );
-        assertThat(completeResponse.statusCode()).isEqualTo(200);
-        JsonObject fileAfterComplete = fetchFileRecord(fileId, userId);
+        assertThat(completeResponse.statusCode()).isEqualTo(202);
+        JsonObject completeBody = new JsonObject(completeResponse.body());
+        assertThat(completeBody.getString("fileId")).isEqualTo(fileId.toString());
+        assertThat(completeBody.getString("status")).isEqualTo("PROCESSING");
+
+        JsonObject fileAfterComplete = waitForStatus(fileId, userId, "UPLOADED", Duration.ofSeconds(5));
         assertThat(fileAfterComplete.getString("status")).isEqualTo("UPLOADED");
 
         // Request download metadata and receive presigned GET URL.
@@ -203,7 +205,7 @@ class IntegrationTest {
     }
 
     @Test
-    void shouldRejectCompleteWhenObjectWasNotUploaded() throws Exception {
+    void shouldMarkFileAsFailedWhenObjectWasNotUploaded() throws Exception {
         UUID userId = UUID.randomUUID();
 
         HttpResponse<String> initResponse = postJson(
@@ -224,11 +226,71 @@ class IntegrationTest {
                 userId
         );
 
-        assertThat(completeResponse.statusCode()).isEqualTo(HTTP_CONFLICT);
-        assertThat(completeResponse.body()).isEqualTo(FILE_NOT_YET_UPLOADED_ERROR_MSG);
+        assertThat(completeResponse.statusCode()).isEqualTo(202);
+        JsonObject completeBody = new JsonObject(completeResponse.body());
+        assertThat(completeBody.getString("fileId")).isEqualTo(fileId.toString());
+        assertThat(completeBody.getString("status")).isEqualTo("PROCESSING");
 
-        JsonObject fileAfterRejectedComplete = fetchFileRecord(fileId, userId);
-        assertThat(fileAfterRejectedComplete.getString("status")).isEqualTo("PENDING");
+        JsonObject fileAfterRejectedComplete = waitForStatus(fileId, userId, "FAILED", Duration.ofSeconds(5));
+        assertThat(fileAfterRejectedComplete.getString("status")).isEqualTo("FAILED");
+    }
+
+    @Test
+    void shouldExposeUploadStatusDuringAndAfterCompletion() throws Exception {
+        UUID userId = UUID.randomUUID();
+        byte[] fileContent = "status endpoint payload".getBytes(StandardCharsets.UTF_8);
+
+        HttpResponse<String> initResponse = postJson(
+                serverBaseUrl + "/files/init",
+                userId,
+                new JsonObject()
+                        .put("filename", "status-check.wav")
+                        .put("size", fileContent.length)
+                        .put("contentType", "audio/wav")
+                        .encode()
+        );
+
+        UUID fileId = UUID.fromString(new JsonObject(initResponse.body()).getString("fileId"));
+
+        HttpResponse<String> pendingStatusResponse = get(serverBaseUrl + "/files/" + fileId + "/status", userId);
+        assertThat(pendingStatusResponse.statusCode()).isEqualTo(200);
+        assertThat(new JsonObject(pendingStatusResponse.body()).getString("status")).isEqualTo("PENDING");
+
+        String uploadUrl = new JsonObject(initResponse.body()).getString("uploadUrl");
+        assertThat(uploadUrl).isNotBlank();
+
+        HttpResponse<byte[]> uploadResponse = HTTP_CLIENT.send(
+                HttpRequest.newBuilder(URI.create(uploadUrl))
+                        .header("Content-Type", "audio/wav")
+                        .timeout(Duration.ofSeconds(10))
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(fileContent))
+                        .build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+        );
+        assertThat(uploadResponse.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> completeResponse = postWithoutBody(serverBaseUrl + "/files/complete/" + fileId, userId);
+        assertThat(completeResponse.statusCode()).isEqualTo(202);
+
+        waitForStatus(fileId, userId, "UPLOADED", Duration.ofSeconds(5));
+        HttpResponse<String> uploadedStatusResponse = get(serverBaseUrl + "/files/" + fileId + "/status", userId);
+        assertThat(uploadedStatusResponse.statusCode()).isEqualTo(200);
+        assertThat(new JsonObject(uploadedStatusResponse.body()).getString("status")).isEqualTo("UPLOADED");
+    }
+
+    private static JsonObject waitForStatus(UUID fileId, UUID userId, String expectedStatus, Duration timeout) throws Exception {
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+        JsonObject latestMetadata;
+
+        do {
+            latestMetadata = fetchFileRecord(fileId, userId);
+            if (expectedStatus.equals(latestMetadata.getString("status"))) {
+                return latestMetadata;
+            }
+            Thread.sleep(100);
+        } while (System.nanoTime() < deadlineNanos);
+
+        return latestMetadata;
     }
 
     private static JsonObject fetchFileRecord(UUID fileId, UUID userId) throws Exception {
