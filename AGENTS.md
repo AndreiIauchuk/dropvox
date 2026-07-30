@@ -52,3 +52,4 @@
 - When changing the flow, update the diagrams in 'diagrams' folder to cover the updated flow.
 - When changing lifecycle/status semantics or request flow, update `AGENTS.md` in the same PR so agent guidance stays in sync with the implementation.
 - For any meaningful project update (APIs, flows, setup, testing, architecture, or observability), review and update `README.md`.
+- For any meaningful project update (APIs, flows, setup, testing, architecture, or observability), review and update Copilot instructions if needed: `.github/copilot-instructions.md` and applicable files in `.github/instructions/*.instructions.md`.
