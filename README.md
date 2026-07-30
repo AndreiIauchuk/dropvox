@@ -25,7 +25,7 @@ It is split into three services:
 
 1. `POST /files/init` creates a metadata row in `PENDING` and returns a presigned upload URL.
 2. Client uploads directly to MinIO with the presigned PUT URL.
-3. `POST /files/complete/:fileId` returns `202 PROCESSING` and triggers async verification.
+3. `POST /files/:fileId/completion-request` returns `202 PROCESSING` and triggers async verification.
 4. Metadata transitions status to `UPLOADED` (success) or `FAILED` (terminal miss).
 5. `GET /files/:fileId/status` returns lifecycle state.
 
@@ -98,4 +98,3 @@ Main test plan:
 ## Build artifacts
 
 Each module is configured to produce a shaded runnable JAR via Maven Shade Plugin.
-

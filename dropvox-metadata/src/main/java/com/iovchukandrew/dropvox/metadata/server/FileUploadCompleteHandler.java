@@ -13,7 +13,7 @@ import java.util.UUID;
 import static com.iovchukandrew.dropvox.metadata.server.FileUploadCompletionStatus.PROCESSING;
 
 /**
- * Handles POST /files/complete/:fileId requests.
+ * Handles POST /files/:fileId/completion-request requests.
  */
 public class FileUploadCompleteHandler implements Handler<RoutingContext> {
     private static final Logger log = LoggerFactory.getLogger(FileUploadCompleteHandler.class);
@@ -42,8 +42,8 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                 .end(acceptedPayload.toBuffer());
 
         uploadCompletionProcessor.processRequestedCompletion(fileUuid, userUuid)
-                .onSuccess(ignored -> log.info("Upload completion processing finished for fileId={}, userId={}", fileUuid, userUuid))
-                .onFailure(err -> log.error("Unexpected failure during async upload completion for fileId={}, userId={}",
+                .onSuccess(ignored -> log.info("Upload completion request processing finished for fileId={}, userId={}", fileUuid, userUuid))
+                .onFailure(err -> log.error("Unexpected failure during async upload completion request for fileId={}, userId={}",
                         fileUuid, userUuid, err));
     }
 }

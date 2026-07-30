@@ -21,7 +21,7 @@ gate --> user: metadata + presignedURL
 user -> s3: PUT {uploadUrl}
 s3 --> user: 200 OK
 |||
-user -> gate: POST /files/complete/{fileId}
+user -> gate: POST /files/{fileId}/completion-request
 gate -> auth: validate JWT
 auth --> gate: OK
 gate -> kafka: publish FileUploadCompletionRequested(fileId, userId, traceId)
@@ -36,7 +36,7 @@ else object not found after retries
 end
 metadata --> kafka: ack processing (offset commit)
 |||
-group Optional: MinIO event-driven auto-complete
+group MinIO event-driven auto-complete
   s3 -> kafka: publish ObjectCreated event
   kafka -> metadata: consume MinIO object event
   metadata -> db: confirm pending file by bucket+s3Key

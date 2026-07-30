@@ -170,7 +170,7 @@ class IntegrationTest {
 
         // Confirm uploading by DB status transitions from PENDING to UPLOADED.
         HttpResponse<String> completeResponse = postWithoutBody(
-                serverBaseUrl + "/files/complete/" + fileId,
+                serverBaseUrl + "/files/" + fileId + "/completion-request",
                 userId
         );
         assertThat(completeResponse.statusCode()).isEqualTo(202);
@@ -222,7 +222,7 @@ class IntegrationTest {
         UUID fileId = UUID.fromString(new JsonObject(initResponse.body()).getString("fileId"));
 
         HttpResponse<String> completeResponse = postWithoutBody(
-                serverBaseUrl + "/files/complete/" + fileId,
+                serverBaseUrl + "/files/" + fileId + "/completion-request",
                 userId
         );
 
@@ -269,7 +269,7 @@ class IntegrationTest {
         );
         assertThat(uploadResponse.statusCode()).isEqualTo(200);
 
-        HttpResponse<String> completeResponse = postWithoutBody(serverBaseUrl + "/files/complete/" + fileId, userId);
+        HttpResponse<String> completeResponse = postWithoutBody(serverBaseUrl + "/files/" + fileId + "/completion-request", userId);
         assertThat(completeResponse.statusCode()).isEqualTo(202);
 
         waitForStatus(fileId, userId, "UPLOADED", Duration.ofSeconds(5));

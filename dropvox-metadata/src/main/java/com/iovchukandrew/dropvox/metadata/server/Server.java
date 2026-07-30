@@ -73,7 +73,7 @@ public class Server extends VerticleBase {
                 .handler(new FileUploadStatusHandler(filesDAO));
         router.post("/files/init")
                 .handler(new FileUploadInitHandler(filesDAO, s3PresignedUrlGenerator, bucketName));
-        router.post("/files/complete/:fileId")
+        router.post("/files/:fileId/completion-request")
                 .handler(new FileUploadCompleteHandler(uploadCompletionProcessor));
 
         HttpServerOptions serverOptions = new HttpServerOptions().setHttp2ClearTextEnabled(false);

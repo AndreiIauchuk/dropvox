@@ -25,7 +25,7 @@ Content-Type: application/octet-stream
 < ./Engine.ini
 
 ### 3) Request async upload completion (returns 202 Accepted)
-POST {{api}}/files/complete/{{fileId}}
+POST {{api}}/files/{{fileId}}/completion-request
 Accept: application/json
 
 ### 4) Poll upload status until it becomes UPLOADED
@@ -42,4 +42,3 @@ Accept: application/json
 
 ### 6) Download uploaded file
 GET {{downloadUrl}}
-
