@@ -121,7 +121,7 @@ public class Server extends VerticleBase {
                     mountOperation(routerBuilder, "downloadFile", fileDownloadHandler);
                     mountOperation(routerBuilder, "getFileUploadStatus", fileUploadStatusHandler);
                     mountOperation(routerBuilder, "initFileUpload", fileUploadInitHandler);
-                    mountOperation(routerBuilder, "completeFileUpload", fileUploadCompleteHandler);
+                    mountOperation(routerBuilder, "requestFileUploadCompletion", fileUploadCompleteHandler);
 
                     router.route("/*").subRouter(routerBuilder.createRouter());
                     return router;

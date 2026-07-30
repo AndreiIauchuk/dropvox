@@ -48,13 +48,13 @@
         }
       }
     },
-    "/files/complete/{fileId}": {
+    "/files/{fileId}/completion-request": {
       "post": {
-        "operationId": "completeFileUpload",
+        "operationId": "requestFileUploadCompletion",
         "tags": [
           "Files"
         ],
-        "summary": "Mark an uploaded file as complete",
+        "summary": "Request uploaded file completion",
         "parameters": [
           {
             "$ref": "#/components/parameters/FileId"

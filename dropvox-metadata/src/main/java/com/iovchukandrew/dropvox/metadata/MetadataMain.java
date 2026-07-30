@@ -84,7 +84,8 @@ public class MetadataMain {
                 new MicrometerMetricsOptions()
                         .setPrometheusOptions(
                                 new VertxPrometheusOptions()
-                                        .setEnabled(true))
+                                        .setEnabled(true)
+                                        .setPublishQuantiles(true))
                         .setLabels(createLabels())
                         .setEnabled(true)));
         bindJvmMetrics();

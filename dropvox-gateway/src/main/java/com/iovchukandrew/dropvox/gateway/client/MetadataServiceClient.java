@@ -4,6 +4,7 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import org.slf4j.MDC;
@@ -71,14 +72,14 @@ public class MetadataServiceClient {
      * @param userId the user identifier
      * @return Future containing accepted processing payload
      */
-    public Future<JsonObject> completeFileUpload(String fileId, String userId) {
-        return withTrace(webClient.post(port, host, "/files/complete/" + fileId))
+    public Future<JsonObject> requestFileUploadCompletion(String fileId, String userId) {
+        return withTrace(webClient.post(port, host, "/files/" + fileId + "/completion-request"))
                 .putHeader(HttpHeader.USER_ID, userId)
                 .send()
-                .transform(ar -> handleJsonResponse(ar, "POST /files/complete/" + fileId));
+                .transform(ar -> handleJsonResponse(ar, "POST /files/" + fileId + "/completion-request"));
     }
 
-    private io.vertx.ext.web.client.HttpRequest<Buffer> withTrace(io.vertx.ext.web.client.HttpRequest<Buffer> request) {
+    private HttpRequest<Buffer> withTrace(HttpRequest<Buffer> request) {
         String traceId = MDC.get("traceId");
         if (traceId != null && !traceId.isBlank()) {
             request.putHeader(HttpHeader.TRACE_ID, traceId);

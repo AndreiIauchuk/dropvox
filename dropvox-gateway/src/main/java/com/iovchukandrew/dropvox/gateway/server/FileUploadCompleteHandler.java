@@ -14,7 +14,7 @@ import software.amazon.awssdk.http.HttpStatusCode;
 import static com.iovchukandrew.dropvox.gateway.server.FileUploadCompletionStatus.PROCESSING;
 
 /**
- * Handles POST /files/complete/:fileId requests.
+ * Handles POST /files/:fileId/completion-request requests.
  */
 public class FileUploadCompleteHandler implements Handler<RoutingContext> {
     private static final Logger log = LoggerFactory.getLogger(FileUploadCompleteHandler.class);
@@ -42,7 +42,7 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
 
         authServiceClient.validateToken("token")
                 .compose(userId -> {
-                    log.info("Completing upload for fileId={}, userId={}", fileId, userId);
+                    log.info("Requesting upload completion for fileId={}, userId={}", fileId, userId);
                     if (uploadCompletionRequestedPublisher != null) {
                         return uploadCompletionRequestedPublisher.publish(fileId, userId, traceId)
                                 .map(new JsonObject()
@@ -50,10 +50,10 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                                         .put("status", PROCESSING.name()));
                     }
 
-                    return metadataServiceClient.completeFileUpload(fileId, userId);
+                    return metadataServiceClient.requestFileUploadCompletion(fileId, userId);
                 })
                 .onSuccess(acceptedPayload -> {
-                    log.info("Upload completion accepted for fileId={}", fileId);
+                    log.info("Upload completion request accepted for fileId={}", fileId);
                     JsonObject response = acceptedPayload.copy().put("statusUrl", "/files/" + fileId + "/status");
                     ctx.response()
                             .setStatusCode(HttpStatusCode.ACCEPTED)
@@ -61,7 +61,7 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                             .end(response.toBuffer());
                 })
                 .onFailure(err -> {
-                    log.error("Failed to complete upload", err);
+                    log.error("Failed to request upload completion", err);
                     int statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
                     if (err instanceof MetadataServiceException metadataServiceException) {
                         statusCode = metadataServiceException.getStatusCode();

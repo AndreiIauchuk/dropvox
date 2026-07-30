@@ -27,7 +27,7 @@ Content-Type: application/octet-stream
 < ./Engine.ini
 
 ### 3) Request async completion (returns 202 Accepted)
-POST {{api}}/files/complete/{{fileId}}
+POST {{api}}/files/{{fileId}}/completion-request
 Accept: application/json
 X-User-Id: {{userId}}
 

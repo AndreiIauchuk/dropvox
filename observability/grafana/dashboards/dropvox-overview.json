@@ -133,7 +133,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(vertx_http_server_response_time_seconds_bucket{route!=\"/metrics\"}[3m])))",
+          "expr": "dropvox:http_server_response_time:p95_seconds",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -173,7 +173,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum by (le, service) (rate(vertx_http_server_response_time_seconds_bucket{route!=\"/metrics\"}[3m])))",
+          "expr": "dropvox:http_server_response_time:p99_seconds",
           "legendFormat": "{{service}}",
           "refId": "A"
         }

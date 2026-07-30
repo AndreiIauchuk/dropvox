@@ -14,7 +14,7 @@ jmeter
 Or run the test headlessly:
 
 ```powershell
-jmeter -n -t perf\jmeter\dropvox-files-flow.jmx -l perf\jmeter\results.jtl
+Remove-Item "perf\jmeter\results.jtl" -ErrorAction SilentlyContinue; jmeter -n -t perf\jmeter\dropvox-files-flow.jmx -l perf\jmeter\results.jtl
 ```
 
 Default variables in the plan:

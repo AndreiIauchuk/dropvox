@@ -70,9 +70,7 @@ public class FilesDAO {
                                         fileId, ownerId, rows.size())));
                     }
                     return mapRowToJsonAsync(rows.iterator().next());
-                })
-                .onFailure(e -> log.error("Unable to find a file by {fileId={}, ownerId={}, status={}}",
-                        fileId, ownerId, status, e));
+                });
     }
 
     /**
@@ -101,8 +99,7 @@ public class FilesDAO {
                                         fileId, ownerId, rows.size())));
                     }
                     return mapRowToJsonAsync(rows.iterator().next());
-                })
-                .onFailure(e -> log.error("Unable to find file by {fileId={}, ownerId={}} regardless of status", fileId, ownerId, e));
+                });
     }
 
     /**
@@ -145,8 +142,7 @@ public class FilesDAO {
                         return Future.failedFuture("Expected to insert single pending file metadata, but got " + rows.size());
                     }
                     return mapRowToJsonAsync(rows.iterator().next());
-                })
-                .onFailure(e -> log.error("Unable to create a pending file metadata", e));
+                });
     }
 
     /**
@@ -172,8 +168,7 @@ public class FilesDAO {
                                 String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
                     return mapRowToJsonAsync(rows.iterator().next());
-                })
-                .onFailure(e -> log.error("Unable to update a file metadata of uploaded file", e));
+                });
     }
 
     /**
@@ -204,8 +199,7 @@ public class FilesDAO {
                     UUID fileId = row.getUUID("id");
                     UUID ownerId = row.getUUID("owner_id");
                     return confirmFileUpload(fileId, ownerId);
-                })
-                .onFailure(e -> log.error("Unable to update pending file metadata by object location", e));
+                });
     }
 
     /**
@@ -230,8 +224,7 @@ public class FilesDAO {
                                 String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
                     return mapRowToJsonAsync(rows.iterator().next());
-                })
-                .onFailure(e -> log.error("Unable to mark pending file metadata as failed", e));
+                });
     }
 
     private Future<JsonObject> mapRowToJsonAsync(Row row) {

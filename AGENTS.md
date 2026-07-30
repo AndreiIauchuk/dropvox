@@ -9,7 +9,7 @@
 - `dropvox-gateway` is the front door. It mounts handlers by OpenAPI `operationId` from `dropvox-gateway/src/main/resources/swagger/openapi.json` inside `dropvox-gateway/src/main/java/com/iovchukandrew/dropvox/gateway/server/Server.java`.
 - Gateway handlers should stay thin: they authenticate via `AuthServiceClient` and proxy business operations through `MetadataServiceClient`.
 - `dropvox-metadata` owns file lifecycle state and presigned URLs. Its HTTP routes are wired directly in `dropvox-metadata/src/main/java/com/iovchukandrew/dropvox/metadata/server/Server.java`.
-- Current upload flow is: `POST /files/init` -> DB row in `PENDING` -> client uploads directly to MinIO via presigned PUT -> `POST /files/complete/:fileId` returns `202 PROCESSING` and async verification starts -> DB row becomes `UPLOADED` on success or `FAILED` on terminal verification miss -> `GET /files/:fileId/status` exposes lifecycle state.
+- Current upload flow is: `POST /files/init` -> DB row in `PENDING` -> client uploads directly to MinIO via presigned PUT -> `POST /files/:fileId/completion-request` returns `202 PROCESSING` and async verification starts -> DB row becomes `UPLOADED` on success or `FAILED` on terminal verification miss -> `GET /files/:fileId/status` exposes lifecycle state.
 - The best executable reference for the full flow is `dropvox-metadata/src/test/java/com/iovchukandrew/dropvox/metadata/IntegrationTest.java`.
 
 ## Data and storage conventions
@@ -28,7 +28,7 @@
 ## HTTP and cross-service patterns
 - Trace propagation matters here: services accept or generate `X-Trace-Id`, store it in MDC, and echo it back in responses; gateway forwards it downstream in `MetadataServiceClient.withTrace(...)`.
 - Metadata expects user identity in `X-User-Id` and validates UUIDs before processing requests.
-- `PROCESSING` is an API acceptance status for `POST /files/complete/:fileId`; persisted lifecycle states are `PENDING`/`UPLOADED`/`FAILED` and are observed via `GET /files/:fileId/status`.
+- `PROCESSING` is an API acceptance status for `POST /files/:fileId/completion-request`; persisted lifecycle states are `PENDING`/`UPLOADED`/`FAILED` and are observed via `GET /files/:fileId/status`.
 - Gateway request validation is OpenAPI-driven. If you add or rename an endpoint, update both the OpenAPI spec and the `operationId` mounting in gateway `Server.java`.
 - Gateway converts OpenAPI validation failures to `400`; other uncaught failures generally surface as `500`.
 
@@ -52,3 +52,4 @@
 - When changing the flow, update the diagrams in 'diagrams' folder to cover the updated flow.
 - When changing lifecycle/status semantics or request flow, update `AGENTS.md` in the same PR so agent guidance stays in sync with the implementation.
 - For any meaningful project update (APIs, flows, setup, testing, architecture, or observability), review and update `README.md`.
+- For any meaningful project update (APIs, flows, setup, testing, architecture, or observability), review and update Copilot instructions if needed: `.github/copilot-instructions.md` and applicable files in `.github/instructions/*.instructions.md`.
