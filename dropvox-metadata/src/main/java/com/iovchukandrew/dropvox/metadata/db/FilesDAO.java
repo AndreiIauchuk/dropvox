@@ -173,7 +173,13 @@ public class FilesDAO {
                     }
                     return mapRowToJsonAsync(rows.iterator().next());
                 })
-                .onFailure(e -> log.error("Unable to update a file metadata of uploaded file", e));
+                .onFailure(e -> {
+                    if (e instanceof FileMetadataNotFoundException) {
+                        log.debug("No pending file metadata remained for upload confirmation by {fileId={}, ownerId={}}", fileId, ownerId);
+                        return;
+                    }
+                    log.error("Unable to update a file metadata of uploaded file", e);
+                });
     }
 
     /**
@@ -205,7 +211,13 @@ public class FilesDAO {
                     UUID ownerId = row.getUUID("owner_id");
                     return confirmFileUpload(fileId, ownerId);
                 })
-                .onFailure(e -> log.error("Unable to update pending file metadata by object location", e));
+                .onFailure(e -> {
+                    if (e instanceof FileMetadataNotFoundException) {
+                        log.debug("No pending file metadata remained for object location {bucket={}, s3Key={}}", bucket, s3Key);
+                        return;
+                    }
+                    log.error("Unable to update pending file metadata by object location", e);
+                });
     }
 
     /**
