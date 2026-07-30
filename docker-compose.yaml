@@ -199,6 +199,7 @@ services:
       - "9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/dropvox-latency.rules.yml:/etc/prometheus/dropvox-latency.rules.yml:ro
       - promdata:/prometheus
     networks:
       - dropvox-net

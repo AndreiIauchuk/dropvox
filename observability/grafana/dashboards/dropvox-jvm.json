@@ -138,7 +138,7 @@
           "refId": "A"
         }
       ],
-      "title": "CPU Usage by Service",
+      "title": "CPU Usage",
       "type": "timeseries"
     },
     {
@@ -178,7 +178,7 @@
           "refId": "A"
         }
       ],
-      "title": "RAM Usage by Service",
+      "title": "RAM Usage",
       "type": "timeseries"
     }
   ],

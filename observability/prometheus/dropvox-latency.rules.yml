@@ -1,0 +1,20 @@
+groups:
+  - name: dropvox-latency
+    rules:
+      - record: dropvox:http_server_response_time:p95_seconds
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service) (
+              rate(vertx_http_server_response_time_seconds_bucket{route!="/metrics"}[5m])
+            )
+          )
+      - record: dropvox:http_server_response_time:p99_seconds
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le, service) (
+              rate(vertx_http_server_response_time_seconds_bucket{route!="/metrics"}[5m])
+            )
+          )
+
