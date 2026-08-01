@@ -181,25 +181,40 @@ public class FilesDAO {
     public Future<JsonObject> confirmPendingFileUploadByObjectLocation(String bucket, String s3Key) {
         log.info("Updating pending file metadata by object location {bucket={}, s3Key={}}", bucket, s3Key);
 
-        String sql = "SELECT id, owner_id FROM files WHERE bucket = $1 AND s3_key = $2 AND status = $3";
-        return pool.preparedQuery(sql)
-                .execute(Tuple.of(bucket, s3Key, FileStatus.PENDING.name()))
-                .compose(rows -> {
-                    if (rows.size() == 0) {
-                        return Future.failedFuture(new FileMetadataNotFoundException(
-                                String.format("No pending file metadata was found by {bucket=%s, s3Key=%s}", bucket, s3Key)));
-                    }
-                    if (rows.size() > 1) {
-                        return Future.failedFuture(new FileMetadataInvariantViolationException(
-                                String.format("Expected exactly 1 pending file by {bucket=%s, s3Key=%s}, but got %s",
-                                        bucket, s3Key, rows.size())));
-                    }
+        String selectSql = "SELECT id, owner_id FROM files WHERE bucket = $1 AND s3_key = $2 AND status = $3 FOR UPDATE";
+        String updateSql = "UPDATE files SET status = $3 " +
+                "WHERE id = $1 AND owner_id = $2 AND status = $4 " +
+                "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, status, created_at, updated_at";
 
-                    Row row = rows.iterator().next();
-                    UUID fileId = row.getUUID("id");
-                    UUID ownerId = row.getUUID("owner_id");
-                    return confirmFileUpload(fileId, ownerId);
-                });
+        return pool.withTransaction(conn ->
+                conn.preparedQuery(selectSql)
+                        .execute(Tuple.of(bucket, s3Key, FileStatus.PENDING.name()))
+                        .compose(rows -> {
+                            if (rows.size() == 0) {
+                                return Future.failedFuture(new FileMetadataNotFoundException(
+                                        String.format("No pending file metadata was found by {bucket=%s, s3Key=%s}", bucket, s3Key)));
+                            }
+                            if (rows.size() > 1) {
+                                return Future.failedFuture(new FileMetadataInvariantViolationException(
+                                        String.format("Expected exactly 1 pending file by {bucket=%s, s3Key=%s}, but got %s",
+                                                bucket, s3Key, rows.size())));
+                            }
+
+                            Row row = rows.iterator().next();
+                            UUID fileId = row.getUUID("id");
+                            UUID ownerId = row.getUUID("owner_id");
+
+                            return conn.preparedQuery(updateSql)
+                                    .execute(Tuple.of(fileId, ownerId, FileStatus.UPLOADED.name(), FileStatus.PENDING.name()))
+                                    .compose(updateRows -> {
+                                        if (updateRows.size() == 0) {
+                                            return Future.failedFuture(new FileMetadataNotFoundException(
+                                                    String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
+                                        }
+                                        return mapRowToJsonAsync(updateRows.iterator().next());
+                                    });
+                        })
+        );
     }
 
     /**

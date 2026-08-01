@@ -13,6 +13,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -235,6 +236,43 @@ class FilesDAOTest {
         assertThat(confirmedFile.getString("fileId")).isEqualTo(pendingFile.getString("fileId"));
         assertThat(confirmedFile.getString("ownerId")).isEqualTo(ownerId.toString());
         assertThat(confirmedFile.getString("status")).isEqualTo("UPLOADED");
+    }
+
+    @Test
+    void shouldConfirmPendingFileUploadByObjectLocationAtomically() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        String bucket = "dropvox-files";
+        String s3Key = "users/" + ownerId + "/files/test.wav";
+
+        filesDAO.createPendingFile("test.wav", 42L, "audio/wav", ownerId, bucket, s3Key)
+                .await(10, TimeUnit.SECONDS);
+
+        CompletableFuture<JsonObject> cf1 = filesDAO.confirmPendingFileUploadByObjectLocation(bucket, s3Key)
+                .toCompletionStage().toCompletableFuture();
+        CompletableFuture<JsonObject> cf2 = filesDAO.confirmPendingFileUploadByObjectLocation(bucket, s3Key)
+                .toCompletionStage().toCompletableFuture();
+
+        CompletableFuture
+                .allOf(cf1.exceptionally(e -> null), cf2.exceptionally(e -> null))
+                .get(10, TimeUnit.SECONDS);
+
+        boolean cf1Succeeded = !cf1.isCompletedExceptionally();
+        boolean cf2Succeeded = !cf2.isCompletedExceptionally();
+
+        assertThat(cf1Succeeded ^ cf2Succeeded)
+                .as("Exactly one concurrent confirmation should succeed; the other should fail")
+                .isTrue();
+
+        CompletableFuture<JsonObject> notSucceeded = cf1Succeeded ? cf2 : cf1;
+        assertThatThrownBy(notSucceeded::get)
+                .hasCauseInstanceOf(FileMetadataNotFoundException.class);
+
+        var rows = pool.preparedQuery("SELECT status FROM files WHERE bucket = $1 AND s3_key = $2")
+                .execute(Tuple.of(bucket, s3Key))
+                .await(10, TimeUnit.SECONDS);
+
+        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows.iterator().next().getString("status")).isEqualTo("UPLOADED");
     }
 
     private static JsonObject createDbConfig() {
