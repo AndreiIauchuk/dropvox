@@ -119,7 +119,7 @@ public class MetadataMain {
         var s3Presigner = S3PresignerFactory.create(config);
         var s3ObjectExistenceChecker = new S3ObjectExistenceChecker(s3Client);
         var s3PresignedUrlGenerator = new S3PresignedUrlGenerator(s3Presigner);
-        var metadataDAO = new FilesDAO(vertx, sqlPool);
+        var metadataDAO = new FilesDAO(sqlPool);
 
         return deployServer(vertx, metadataDAO, s3PresignedUrlGenerator, s3ObjectExistenceChecker, config)
                 .map(id -> new AppContext(sqlPool, s3Client, s3Presigner));

@@ -38,13 +38,31 @@ public class UploadCompletionProcessor {
     }
 
     public Future<Void> processRequestedCompletion(UUID fileUuid, UUID userUuid) {
-        return filesDAO.findPendingFileByIdAndOwner(fileUuid, userUuid)
-                .compose(metadata -> checkObjectExistsWithRetry(metadata, 1))
-                .compose(objectExists -> {
-                    if (!objectExists) {
-                        return filesDAO.markPendingFileUploadAsFailed(fileUuid, userUuid).mapEmpty();
+        return filesDAO.findFileByIdAndOwnerAnyStatus(fileUuid, userUuid)
+                .compose(metadata -> {
+                    String status = metadata.getString("status");
+                    if ("UPLOADED".equals(status)) {
+                        log.info("File already uploaded, skipping duplicate completion request for fileId={}, ownerId={}", fileUuid, userUuid);
+                        return Future.succeededFuture();
                     }
-                    return filesDAO.confirmFileUpload(fileUuid, userUuid).mapEmpty();
+                    if (!"PENDING".equals(status)) {
+                        log.warn("Unexpected file status {} for completion request, skipping fileId={}, ownerId={}", status, fileUuid, userUuid);
+                        return Future.succeededFuture();
+                    }
+                    return checkObjectExistsWithRetry(metadata, 1)
+                            .compose(objectExists -> {
+                                if (!objectExists) {
+                                    return filesDAO.markPendingFileUploadAsFailed(fileUuid, userUuid).mapEmpty();
+                                }
+                                return filesDAO.confirmFileUpload(fileUuid, userUuid).mapEmpty();
+                            })
+                            .recover(err -> {
+                                if (err instanceof FileMetadataNotFoundException) {
+                                    log.info("File already processed by concurrent event, skipping fileId={}, ownerId={}", fileUuid, userUuid);
+                                    return Future.succeededFuture();
+                                }
+                                return Future.failedFuture(err);
+                            });
                 });
     }
 

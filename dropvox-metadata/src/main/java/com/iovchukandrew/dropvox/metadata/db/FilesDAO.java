@@ -1,7 +1,6 @@
 package com.iovchukandrew.dropvox.metadata.db;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
@@ -12,23 +11,17 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.iovchukandrew.dropvox.metadata.db.FileStatus.PENDING;
+
 /**
  * Data access object for file metadata.
  */
 public class FilesDAO {
     private static final Logger log = LoggerFactory.getLogger(FilesDAO.class);
 
-    public enum FileStatus {
-        PENDING,
-        UPLOADED,
-        FAILED
-    }
-
-    private final Vertx vertx;
     private final Pool pool;
 
-    public FilesDAO(Vertx vertx, Pool pool) {
-        this.vertx = vertx;
+    public FilesDAO(Pool pool) {
         this.pool = pool;
     }
 
@@ -64,12 +57,7 @@ public class FilesDAO {
                         return Future.failedFuture(new FileMetadataNotFoundException(
                                 String.format("File not found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
-                    if (rows.size() > 1) {
-                        return Future.failedFuture(new FileMetadataInvariantViolationException(
-                                String.format("Expected exactly 1 file by {fileId=%s, ownerId=%s}, but got %s",
-                                        fileId, ownerId, rows.size())));
-                    }
-                    return mapRowToJsonAsync(rows.iterator().next());
+                    return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 });
     }
 
@@ -93,12 +81,7 @@ public class FilesDAO {
                         return Future.failedFuture(new FileMetadataNotFoundException(
                                 String.format("File not found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
-                    if (rows.size() > 1) {
-                        return Future.failedFuture(new FileMetadataInvariantViolationException(
-                                String.format("Expected exactly 1 file by {fileId=%s, ownerId=%s}, but got %s",
-                                        fileId, ownerId, rows.size())));
-                    }
-                    return mapRowToJsonAsync(rows.iterator().next());
+                    return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 });
     }
 
@@ -110,7 +93,7 @@ public class FilesDAO {
      * @return Future containing pending file metadata as JsonObject
      */
     public Future<JsonObject> findPendingFileByIdAndOwner(UUID fileId, UUID ownerId) {
-        return findFileByIdAndOwner(fileId, ownerId, FileStatus.PENDING);
+        return findFileByIdAndOwner(fileId, ownerId, PENDING);
     }
 
     /**
@@ -136,12 +119,12 @@ public class FilesDAO {
 
         UUID fileId = UUID.randomUUID();
         return pool.preparedQuery(sql)
-                .execute(Tuple.of(fileId, filename, size, contentType, ownerId, FileStatus.PENDING.name(), bucket, s3Key))
+                .execute(Tuple.of(fileId, filename, size, contentType, ownerId, PENDING.name(), bucket, s3Key))
                 .compose(rows -> {
                     if (rows.size() != 1) {
                         return Future.failedFuture("Expected to insert single pending file metadata, but got " + rows.size());
                     }
-                    return mapRowToJsonAsync(rows.iterator().next());
+                    return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 });
     }
 
@@ -153,22 +136,8 @@ public class FilesDAO {
      * @return Future containing updated file metadata
      */
     public Future<JsonObject> confirmFileUpload(UUID fileId, UUID ownerId) {
-        log.info("Updating file metadata of uploaded file by {fileId={}, ownerId={}}",
-                fileId, ownerId);
-
-        String sql = "UPDATE files SET status = $3 " +
-                "WHERE id = $1 AND owner_id = $2 AND status = $4 " +
-                "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, status, created_at, updated_at";
-
-        return pool.preparedQuery(sql)
-                .execute(Tuple.of(fileId, ownerId, FileStatus.UPLOADED.name(), FileStatus.PENDING.name()))
-                .compose(rows -> {
-                    if (rows.size() == 0) {
-                        return Future.failedFuture(new FileMetadataNotFoundException(
-                                String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
-                    }
-                    return mapRowToJsonAsync(rows.iterator().next());
-                });
+        log.info("Updating file metadata of uploaded file by {fileId={}, ownerId={}}", fileId, ownerId);
+        return setPendingFileStatus(fileId, ownerId, FileStatus.UPLOADED);
     }
 
     /**
@@ -188,7 +157,7 @@ public class FilesDAO {
 
         return pool.withTransaction(conn ->
                 conn.preparedQuery(selectSql)
-                        .execute(Tuple.of(bucket, s3Key, FileStatus.PENDING.name()))
+                        .execute(Tuple.of(bucket, s3Key, PENDING.name()))
                         .compose(rows -> {
                             if (rows.size() == 0) {
                                 return Future.failedFuture(new FileMetadataNotFoundException(
@@ -205,14 +174,8 @@ public class FilesDAO {
                             UUID ownerId = row.getUUID("owner_id");
 
                             return conn.preparedQuery(updateSql)
-                                    .execute(Tuple.of(fileId, ownerId, FileStatus.UPLOADED.name(), FileStatus.PENDING.name()))
-                                    .compose(updateRows -> {
-                                        if (updateRows.size() == 0) {
-                                            return Future.failedFuture(new FileMetadataNotFoundException(
-                                                    String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
-                                        }
-                                        return mapRowToJsonAsync(updateRows.iterator().next());
-                                    });
+                                    .execute(Tuple.of(fileId, ownerId, FileStatus.UPLOADED.name(), PENDING.name()))
+                                    .compose(updateRows -> Future.succeededFuture(mapRowToJson(updateRows.iterator().next())));
                         })
         );
     }
@@ -226,24 +189,23 @@ public class FilesDAO {
      */
     public Future<JsonObject> markPendingFileUploadAsFailed(UUID fileId, UUID ownerId) {
         log.info("Marking pending file metadata as failed by {fileId={}, ownerId={}}", fileId, ownerId);
+        return setPendingFileStatus(fileId, ownerId, FileStatus.FAILED);
+    }
 
+    private Future<JsonObject> setPendingFileStatus(UUID fileId, UUID ownerId, FileStatus newStatus) {
         String sql = "UPDATE files SET status = $3 " +
                 "WHERE id = $1 AND owner_id = $2 AND status = $4 " +
                 "RETURNING id, name, size, content_type, owner_id, bucket, s3_key, status, created_at, updated_at";
 
         return pool.preparedQuery(sql)
-                .execute(Tuple.of(fileId, ownerId, FileStatus.FAILED.name(), FileStatus.PENDING.name()))
+                .execute(Tuple.of(fileId, ownerId, newStatus.name(), PENDING.name()))
                 .compose(rows -> {
                     if (rows.size() == 0) {
                         return Future.failedFuture(new FileMetadataNotFoundException(
                                 String.format("No pending file metadata was found by {fileId=%s, ownerId=%s}", fileId, ownerId)));
                     }
-                    return mapRowToJsonAsync(rows.iterator().next());
+                    return Future.succeededFuture(mapRowToJson(rows.iterator().next()));
                 });
-    }
-
-    private Future<JsonObject> mapRowToJsonAsync(Row row) {
-        return vertx.executeBlocking(() -> mapRowToJson(row), false);
     }
 
     private JsonObject mapRowToJson(Row row) {
