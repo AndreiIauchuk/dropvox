@@ -42,8 +42,11 @@ public class FileUploadCompleteHandler implements Handler<RoutingContext> {
                 .end(acceptedPayload.toBuffer());
 
         uploadCompletionProcessor.processRequestedCompletion(fileUuid, userUuid)
-                .onSuccess(ignored -> log.info("Upload completion request processing finished for fileId={}, userId={}", fileUuid, userUuid))
-                .onFailure(err -> log.error("Unexpected failure during async upload completion request for fileId={}, userId={}",
+                .onSuccess(ignored -> log.info(
+                        "Upload completion request processing finished for fileId={}, userId={}",
+                        fileUuid, userUuid))
+                .onFailure(err -> log.error(
+                        "Unexpected failure during upload completion request for fileId={}, userId={}",
                         fileUuid, userUuid, err));
     }
 }

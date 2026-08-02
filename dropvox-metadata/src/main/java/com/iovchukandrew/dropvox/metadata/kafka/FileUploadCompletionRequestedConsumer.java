@@ -102,15 +102,9 @@ public class FileUploadCompletionRequestedConsumer {
         uploadCompletionProcessor.processRequestedCompletion(fileUuid, userUuid)
                 .onSuccess(ignored -> log.info(
                         "Upload completion processing finished via Kafka event for fileId={}, userId={}, traceId={}",
-                        fileId,
-                        userId,
-                        traceId
-                ))
+                        fileId, userId, traceId))
                 .onFailure(err -> log.error("Failed to process upload completion Kafka event for fileId={}, userId={}, traceId={}",
-                        fileId,
-                        userId,
-                        traceId,
-                        err));
+                        fileId, userId, traceId, err));
     }
 }
 

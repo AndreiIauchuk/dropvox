@@ -1,6 +1,7 @@
 package com.iovchukandrew.dropvox.metadata.processing;
 
 import com.iovchukandrew.dropvox.metadata.db.FileMetadataNotFoundException;
+import com.iovchukandrew.dropvox.metadata.db.FileStatus;
 import com.iovchukandrew.dropvox.metadata.db.FilesDAO;
 import com.iovchukandrew.dropvox.metadata.s3.S3ObjectExistenceChecker;
 import io.vertx.core.Future;
@@ -10,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
+
+import static com.iovchukandrew.dropvox.metadata.db.FileStatus.*;
 
 /**
  * Asynchronously confirms uploads by verifying S3 object existence and transitioning DB state.
@@ -37,35 +40,16 @@ public class UploadCompletionProcessor {
         this.s3ExistenceRetryDelayMs = s3ExistenceRetryDelayMs;
     }
 
-    public Future<Void> processRequestedCompletion(UUID fileUuid, UUID userUuid) {
-        return filesDAO.findFileByIdAndOwnerAnyStatus(fileUuid, userUuid)
-                .compose(metadata -> {
-                    String status = metadata.getString("status");
-                    if ("UPLOADED".equals(status)) {
-                        log.info("File already uploaded, skipping duplicate completion request for fileId={}, ownerId={}", fileUuid, userUuid);
-                        return Future.succeededFuture();
-                    }
-                    if (!"PENDING".equals(status)) {
-                        log.warn("Unexpected file status {} for completion request, skipping fileId={}, ownerId={}", status, fileUuid, userUuid);
-                        return Future.succeededFuture();
-                    }
-                    return checkObjectExistsWithRetry(metadata, 1)
-                            .compose(objectExists -> {
-                                if (!objectExists) {
-                                    return filesDAO.markPendingFileUploadAsFailed(fileUuid, userUuid).mapEmpty();
-                                }
-                                return filesDAO.confirmFileUpload(fileUuid, userUuid).mapEmpty();
-                            })
-                            .recover(err -> {
-                                if (err instanceof FileMetadataNotFoundException) {
-                                    log.info("File already processed by concurrent event, skipping fileId={}, ownerId={}", fileUuid, userUuid);
-                                    return Future.succeededFuture();
-                                }
-                                return Future.failedFuture(err);
-                            });
-                });
-    }
-
+    /**
+     * Handles MinIO "object created" notifications by trying to confirm a matching pending upload in DB.
+     *
+     * <p>The event stream is treated as best-effort: if no pending row matches the object location,
+     * the method completes successfully and only logs at debug level.
+     *
+     * @param bucket S3 bucket from the MinIO event
+     * @param s3Key object key from the MinIO event
+     * @return a future that completes when processing finishes
+     */
     public Future<Void> processMinioObjectCreated(String bucket, String s3Key) {
         return filesDAO.confirmPendingFileUploadByObjectLocation(bucket, s3Key)
                 .map(ignored -> (Void) null)
@@ -78,12 +62,73 @@ public class UploadCompletionProcessor {
                 });
     }
 
-    private Future<Boolean> checkObjectExistsWithRetry(JsonObject metadata, int attempt) {
+    /**
+     * Processes an explicit upload completion request for a file owned by a user.
+     *
+     * <p>This method is intentionally idempotent and can be called more than once for the same file.
+     * Duplicate invocations happen in normal operation, for example when clients retry
+     * {@code POST /files/:fileId/completion-request} after network timeouts or when at-least-once
+     * delivery causes repeated completion signaling. Repeated calls must not create duplicate transitions.
+     *
+     * <p>Behavior by state:
+     * <ul>
+     *   <li>{@code PENDING}: checks object existence (with retries) and transitions to {@code UPLOADED}
+     *   or {@code FAILED}</li>
+     *   <li>{@code UPLOADED}/{@code FAILED}: no-op success</li>
+     *   <li>any unknown status: fails the future</li>
+     * </ul>
+     *
+     * @param fileUuid file identifier
+     * @param userUuid owner identifier
+     * @return a future that completes when the request has been applied (or safely ignored)
+     */
+    public Future<Void> processRequestedCompletion(UUID fileUuid, UUID userUuid) {
+        return filesDAO.findFileByIdAndOwnerAnyStatus(fileUuid, userUuid)
+                .compose(metadata -> processCompletionForMetadata(metadata, fileUuid, userUuid));
+    }
+
+    private Future<Void> processCompletionForMetadata(JsonObject metadata, UUID fileUuid, UUID userUuid) {
+        FileStatus status = FileStatus.valueOf(metadata.getString("status"));
+        if (UPLOADED.equals(status)) {
+            log.info("File already uploaded, skipping duplicate completion request for fileId={}, ownerId={}", fileUuid, userUuid);
+            return Future.succeededFuture();
+        }
+        if (FAILED.equals(status)) {
+            log.warn("File already marked as failed, skipping completion request for fileId={}, ownerId={}", fileUuid, userUuid);
+            return Future.succeededFuture();
+        }
+        if (!PENDING.equals(status)) {
+            return Future.failedFuture("Unsupported file status: " + status);
+        }
+
+        return updatePendingFileInDbAfterExistenceCheck(metadata, fileUuid, userUuid)
+                .recover(err -> recoverFailedUpdatingInDb(err, fileUuid, userUuid));
+    }
+
+    private Future<Void> updatePendingFileInDbAfterExistenceCheck(JsonObject metadata, UUID fileUuid, UUID userUuid) {
+        String bucket = metadata.getString("bucket");
+        String s3Key = metadata.getString("s3Key");
+
+        return checkObjectExistsWithRetry(bucket, s3Key, 1)
+                .compose(objectExists -> {
+                    if (!objectExists) {
+                        return filesDAO.markPendingFileUploadAsFailed(fileUuid, userUuid).mapEmpty();
+                    }
+                    return filesDAO.confirmFileUpload(fileUuid, userUuid).mapEmpty();
+                });
+    }
+
+    private Future<Void> recoverFailedUpdatingInDb(Throwable err, UUID fileUuid, UUID userUuid) {
+        if (err instanceof FileMetadataNotFoundException) {
+            log.info("File already processed, skipping fileId={}, ownerId={}", fileUuid, userUuid);
+            return Future.succeededFuture();
+        }
+        return Future.failedFuture(err);
+    }
+
+    private Future<Boolean> checkObjectExistsWithRetry(String bucket, String s3Key, int attempt) {
         return vertx.executeBlocking(() ->
-                s3ObjectExistenceChecker.objectExists(
-                        metadata.getString("bucket"),
-                        metadata.getString("s3Key")
-                )
+                s3ObjectExistenceChecker.objectExists(bucket, s3Key)
         ).compose(objectExists -> {
             if (objectExists || attempt >= maxS3ExistenceCheckAttempts) {
                 return Future.succeededFuture(objectExists);
@@ -91,7 +136,7 @@ public class UploadCompletionProcessor {
 
             return Future.<Void>future(promise ->
                     vertx.setTimer(s3ExistenceRetryDelayMs, ignored -> promise.complete())
-            ).compose(ignored -> checkObjectExistsWithRetry(metadata, attempt + 1));
+            ).compose(ignored -> checkObjectExistsWithRetry(bucket, s3Key, attempt + 1));
         });
     }
 }
